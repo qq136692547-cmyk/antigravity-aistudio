@@ -76,11 +76,8 @@ class TestTier2BoundaryCorner(unittest.TestCase):
     def test_f1_b03_manifest_malformed_json_syntax(self):
         """F1-B3: ManifestValidator rejects malformed JSON strings."""
         malformed_json = '{"name": "antigravity-aistudio", "version": "0.1.0", unclosed_key}'
-        try:
+        with self.assertRaises(json.JSONDecodeError):
             json.loads(malformed_json)
-            self.fail("Should raise JSONDecodeError")
-        except json.JSONDecodeError:
-            pass
 
     def test_f1_b04_manifest_missing_mandatory_keys(self):
         """F1-B4: ManifestValidator detects and reports missing mandatory keys."""

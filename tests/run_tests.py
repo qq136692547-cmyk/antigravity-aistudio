@@ -29,14 +29,16 @@ from test_tier1_feature_coverage import TestTier1FeatureCoverage
 from test_tier2_boundary_corner import TestTier2BoundaryCorner
 from test_tier3_cross_feature import TestTier3CrossFeature
 from test_tier4_real_world import TestTier4RealWorld
+from test_tier5_adversarial_hardening import TestTier5AdversarialHardening
 
 TIER_REQUIREMENTS = {
     "Tier 1 (Feature Coverage)": 95,
     "Tier 2 (Boundary & Corner)": 95,
     "Tier 3 (Cross-Feature & Pairwise)": 25,
     "Tier 4 (Real-World Scenarios)": 6,
+    "Tier 5 (Adversarial Hardening)": 28,
 }
-MIN_TOTAL_TESTS = 220
+MIN_TOTAL_TESTS = 248
 
 MANDATORY_REPO_ARTIFACTS = [
     ("plugin.json", REPO_ROOT / "plugin.json", "file"),
@@ -192,7 +194,7 @@ def main():
 
     start_time = time.time()
     print("=" * 80)
-    print("  ANTIGRAVITY-AISTUDIO 4-TIER E2E TEST SUITE RUNNER")
+    print("  ANTIGRAVITY-AISTUDIO 5-TIER E2E TEST SUITE RUNNER")
     print("=" * 80)
     print(f"Repository Root: {REPO_ROOT}")
     print(f"Tests Directory: {TESTS_DIR}")
@@ -214,6 +216,7 @@ def main():
         ("Tier 2 (Boundary & Corner)", TestTier2BoundaryCorner),
         ("Tier 3 (Cross-Feature & Pairwise)", TestTier3CrossFeature),
         ("Tier 4 (Real-World Scenarios)", TestTier4RealWorld),
+        ("Tier 5 (Adversarial Hardening)", TestTier5AdversarialHardening),
     ]
 
     tier_results = []

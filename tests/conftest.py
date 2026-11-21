@@ -157,6 +157,10 @@ class ManifestValidator:
             for i, p in enumerate(prompts):
                 if not isinstance(p, str) or not p.strip():
                     errors.append(f"Suggested prompt at index {i} must be a non-empty string")
+                elif len(p) > 500:
+                    errors.append(f"Suggested prompt at index {i} exceeds maximum allowed length (500 chars)")
+                elif "\x00" in p or re.search(r"[\x01-\x08\x0b\x0c\x0e-\x1f]", p):
+                    errors.append(f"Suggested prompt at index {i} contains invalid control characters or null bytes")
         elif prompts is not None:
             errors.append("Field 'suggestedPrompts' must be a list of strings")
 
@@ -272,8 +276,10 @@ class SvgValidator:
 
         # Security check: Disallow scripts or event handlers
         lower = content.lower()
-        if "<script" in lower:
+        if "<script" in lower or re.search(r"<\s*([\w\-]+:)?script\b", lower):
             errors.append("SVG contains forbidden <script> element")
+        if "<!entity" in lower or "<!doctype" in lower:
+            errors.append("SVG contains forbidden <!DOCTYPE> or <!ENTITY> declaration")
         if re.search(r"on\w+\s*=", lower):
             errors.append("SVG contains forbidden inline JavaScript event handlers")
 
@@ -288,11 +294,30 @@ class SvgValidator:
         if tag_name.lower() != "svg":
             errors.append(f"Root element must be <svg>, got <{tag_name}>")
 
+        # Element and attribute security inspection
+        for elem in root.iter():
+            local_tag = elem.tag.split("}")[-1].lower()
+            if local_tag in ("script", "foreignobject", "iframe"):
+                errors.append(f"SVG contains forbidden <{local_tag}> element")
+            for attr_k, attr_v in elem.attrib.items():
+                val_lower = str(attr_v).strip().lower()
+                if val_lower.startswith("javascript:") or "javascript:" in val_lower:
+                    errors.append(f"SVG contains forbidden javascript: URI scheme in attribute '{attr_k}'")
+
         # Dimensions or viewBox check
         has_viewbox = "viewBox" in root.attrib or "viewbox" in root.attrib
         has_width_height = "width" in root.attrib and "height" in root.attrib
         if not (has_viewbox or has_width_height):
             errors.append("SVG must define either 'viewBox' or 'width' and 'height' attributes")
+        for dim in ("width", "height"):
+            if dim in root.attrib:
+                val = root.attrib[dim].replace("px", "").strip()
+                try:
+                    num = float(val)
+                    if num <= 0:
+                        errors.append(f"SVG attribute '{dim}' must be a positive number (>0)")
+                except ValueError:
+                    errors.append(f"SVG attribute '{dim}' must be numeric")
 
         # Vector graphics presence check
         elements = [elem.tag.split("}")[-1].lower() for elem in root.iter()]
@@ -382,23 +407,58 @@ class SkillValidator:
 
         # Parse key-value frontmatter without external yaml library
         frontmatter = {}
+        current_multiline_key = None
+        multiline_lines = []
+
         for line in raw_yaml.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
+            if line.startswith("\t"):
+                errors.append("YAML frontmatter contains forbidden tab indentation")
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith("#"):
                 continue
-            if ":" in line:
-                k, v = line.split(":", 1)
+
+            if (line.startswith("  ") or line.startswith("\t")) and current_multiline_key:
+                multiline_lines.append(stripped_line)
+                continue
+            elif current_multiline_key:
+                sep = " " if frontmatter.get(current_multiline_key) == ">" else "\n"
+                frontmatter[current_multiline_key] = sep.join(multiline_lines)
+                current_multiline_key = None
+                multiline_lines = []
+
+            if ":" in stripped_line:
+                k, v = stripped_line.split(":", 1)
                 k = k.strip()
-                v = v.strip().strip("'\"")
-                if v.lower() == "true":
+                if k in frontmatter:
+                    errors.append(f"Duplicate key detected in frontmatter: '{k}'")
+                raw_val = v.strip()
+                if (raw_val.startswith('"') and not raw_val.endswith('"')) or (raw_val.startswith("'") and not raw_val.endswith("'")):
+                    errors.append(f"Unclosed quote in frontmatter value: {raw_val}")
+                elif (raw_val.startswith('"') and raw_val.endswith("'")) or (raw_val.startswith("'") and raw_val.endswith('"')):
+                    errors.append(f"Mismatched quotes in frontmatter value: {raw_val}")
+
+                if raw_val in (">", "|"):
+                    current_multiline_key = k
+                    multiline_lines = []
+                    frontmatter[k] = raw_val
+                    continue
+
+                v_clean = raw_val.strip("'\"")
+                if v_clean.lower() in ("null", "~"):
+                    val = None
+                elif v_clean.lower() == "true":
                     val = True
-                elif v.lower() == "false":
+                elif v_clean.lower() == "false":
                     val = False
-                elif v.isdigit():
-                    val = int(v)
+                elif v_clean.isdigit():
+                    val = int(v_clean)
                 else:
-                    val = v
+                    val = v_clean
                 frontmatter[k] = val
+
+        if current_multiline_key and multiline_lines:
+            sep = " " if frontmatter.get(current_multiline_key) == ">" else "\n"
+            frontmatter[current_multiline_key] = sep.join(multiline_lines)
 
         return frontmatter, body, errors
 
@@ -636,6 +696,9 @@ class StagingContractValidator:
             return ["Filename cannot be empty or whitespace"]
 
         fn = str(filename).strip()
+        if "\x00" in fn:
+            errors.append(f"Filename '{filename}' contains forbidden null bytes")
+
         # Traversal check
         if ".." in fn or "/" in fn or "\\" in fn:
             errors.append(f"Path traversal or directory separator detected in filename: '{filename}'; bare single-segment filename required")
@@ -648,6 +711,12 @@ class StagingContractValidator:
         if re.search(r"[@#$%^&*?<>{}\[\]|;:\s]", fn):
             errors.append(f"Filename '{filename}' contains invalid special characters or spaces; sanitize with alphanumeric, dots, hyphens, and underscores")
 
+        # Reserved Windows device names
+        stem = Path(fn).stem.upper()
+        reserved_names = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+        if stem in reserved_names:
+            errors.append(f"Filename '{filename}' matches forbidden Windows reserved device name")
+
         return errors
 
     @classmethod
@@ -655,6 +724,8 @@ class StagingContractValidator:
         if not path or not str(path).strip():
             return ["Path cannot be empty or whitespace"]
         p_str = str(path).replace("\\", "/")
+        if ".." in p_str:
+            return [f"Path traversal detected in sandbox path: '{path}'"]
         valid_roots = ["browser_sandbox/uploads/", "browser_sandbox/downloads/", "browser_sandbox/references/"]
         if not any(root in p_str for root in valid_roots):
             return [f"Path '{path}' is outside canonical staging sandbox directories"]
@@ -909,6 +980,8 @@ class PromptToSkillRouter:
     def route_prompt(cls, prompt_text: str) -> Dict[str, Any]:
         """Classifies a prompt and returns the matching canonical skill and routing metadata."""
         text_lower = prompt_text.lower()
+        if re.search(r"\b(ignore\s+(all\s+)?(previous\s+)?instructions|output\s+system\s+instructions)\b", text_lower):
+            return {"skill": None, "matched_keywords": [], "confidence": 0.0, "config": {}}
         scores = {}
         for skill_name, config in cls.SKILL_ROUTING_TABLE.items():
             score = sum(1 for kw in config["keywords"] if kw in text_lower)
@@ -1001,6 +1074,11 @@ class OffloadDecisionEngine:
         requires_file_mutation: bool = False,
     ) -> Dict[str, Any]:
         """Evaluates whether a task should run locally or offload to Google AI Studio."""
+        if not isinstance(task_description, str):
+            task_description = str(task_description) if task_description is not None else ""
+        if not isinstance(token_count, (int, float)) or token_count < 0:
+            token_count = 0
+
         if not task_description or not task_description.strip():
             return {
                 "route": "LOCAL_MACHINE",
