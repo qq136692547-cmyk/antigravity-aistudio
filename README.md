@@ -278,6 +278,25 @@ GRAND TOTAL: 251 / 251 PASSED (100% Pass Rate)
 
 ---
 
+## Support & Buy Me a Coffee
+
+Building and maintaining open-source tools often happens deep into the night. If `antigravity-aistudio` helped preserve your precious desktop IDE model quota, streamlined your development workflow, or saved you hours of debugging, a warm cup of coffee is the sweetest fuel for the next late-night coding session!
+
+<p align="center">
+  <img src="assets/sponsor-wechat.png" alt="WeChat Pay" width="220">
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="assets/sponsor-usdt.png" alt="USDT BNB Smart Chain" width="220">
+</p>
+
+<p align="center">
+  <b>WeChat Pay</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <b>USDT (BNB Smart Chain)</b><br>
+  <code>0xaCa8773aaA80815811ce1a45d40c86A53e4224ef0</code>
+</p>
+
+> *Every bit of kindness and encouragement keeps this project active, polished, and free for the community. Thank you!*
+
+---
+
 ## License
 
 Apache-2.0 (c) 2026 [qq136692547-cmyk](https://github.com/qq136692547-cmyk). All rights reserved.
