@@ -43,6 +43,10 @@ When developing inside AI-first IDEs like Antigravity, desktop agent interaction
 
 ## 2. Architecture & System Layers
 
+<p align="center">
+  <img src="assets/architecture-offload-pipeline.png" alt="Cloud Agent Offloading Architecture & Pipeline" width="100%">
+</p>
+
 `antigravity-aistudio` is structured across three core architectural layers:
 
 ```
@@ -51,7 +55,11 @@ antigravity-aistudio/
 |-- README.md                            # Comprehensive user & developer documentation
 |-- assets/
 |   |-- logo.svg                         # Official plugin vector logo
-|   `-- hero-banner.png                  # Cinematic 16:9 hero banner
+|   |-- hero-banner.png                  # Cinematic 16:9 hero banner
+|   |-- architecture-offload-pipeline.png # High-density cloud offload pipeline diagram
+|   |-- modular-skills-ecosystem.png     # Modular 6-skill capability matrix diagram
+|   |-- sponsor-wechat.png               # WeChat Pay sponsorship QR
+|   `-- sponsor-usdt.png                 # USDT (BSC) sponsorship QR
 |-- rules/
 |   `-- AGENTS.md                        # Always-on operating rules & offload decision engine
 |-- skills/
@@ -71,6 +79,8 @@ antigravity-aistudio/
 |       |-- SKILL.md
 |       `-- references/
 |           `-- audit-checklist.md
+|-- scripts/
+|   `-- generate_infographics.py         # High-resolution infographic asset generator
 `-- tests/                               # 5-Tier E2E automated test suite (251 tests)
 ```
 
@@ -212,6 +222,10 @@ You can switch modes at any point during a conversation by replying `"switch to 
 ---
 
 ## 6. Modular Skills Suite Overview
+
+<p align="center">
+  <img src="assets/modular-skills-ecosystem.png" alt="Antigravity AI Studio Modular Skills Ecosystem" width="100%">
+</p>
 
 The plugin provides six dedicated skills covering the entire Google AI Studio surface:
 
