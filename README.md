@@ -61,13 +61,13 @@ antigravity-aistudio/
 ### Installation from GitHub (Recommended)
 
 ```bash
-agy plugin install https://github.com/google-gemini/antigravity-aistudio
+agy plugin install https://github.com/qq136692547-cmyk/antigravity-aistudio
 ```
 
 ### Local Development (Symlink)
 
 ```bash
-git clone https://github.com/google-gemini/antigravity-aistudio.git
+git clone https://github.com/qq136692547-cmyk/antigravity-aistudio.git
 ln -s "$(pwd)/antigravity-aistudio" ~/.gemini/config/plugins/antigravity-aistudio
 ```
 
