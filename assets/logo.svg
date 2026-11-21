@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Google AI Studio Plugin Logo">
+  <defs>
+    <linearGradient id="aistudio-grad" x1="16" y1="16" x2="112" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1A73E8"/>
+      <stop offset="35%" stop-color="#673AB7"/>
+      <stop offset="70%" stop-color="#8E24AA"/>
+      <stop offset="100%" stop-color="#E91E63"/>
+    </linearGradient>
+    <linearGradient id="glow-grad" x1="64" y1="24" x2="64" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#E0E7FF" stop-opacity="0.80"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <!-- Background rounded squircle (safe margin 14..114) -->
+  <rect x="14" y="14" width="100" height="100" rx="24" fill="url(#aistudio-grad)" filter="url(#shadow)"/>
+  <!-- Decorative cloud orbit arc -->
+  <path d="M28 88 C32 94 40 98 48 98 C56 98 62 94 65 90 C70 95 78 97 86 94 C94 91 100 84 100 76" fill="none" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Primary 4-pointed Gemini sparkle star -->
+  <path d="M64 26 C64 43 51 57 34 57 C51 57 64 71 64 88 C64 71 77 57 94 57 C77 57 64 43 64 26 Z" fill="url(#glow-grad)"/>
+  <!-- Secondary sparkle top-right -->
+  <path d="M90 28 C90 35 85 40 78 40 C85 40 90 45 90 52 C90 45 95 40 102 40 C95 40 90 35 90 28 Z" fill="#FFFFFF" fill-opacity="0.9"/>
+  <!-- Tertiary small sparkle bottom-left -->
+  <path d="M38 74 C38 78 35 81 31 81 C35 81 38 84 38 88 C38 84 41 81 45 81 C41 81 38 78 38 74 Z" fill="#FFFFFF" fill-opacity="0.85"/>
+  <!-- Central energy point -->
+  <circle cx="64" cy="57" r="2.5" fill="#FFFFFF"/>
+</svg>
