@@ -235,6 +235,36 @@ class TestTier4RealWorld(unittest.TestCase):
         self.assertEqual(sim_result["drift_report"]["active_surfaces"], 7)
         self.assertEqual(sim_result["drift_report"]["deprecated_models_pruned"], 0)
 
+    def test_scenario_7_compound_task_two_stage_decoupling(self):
+        """
+        Scenario 7: Compound Task Two-Stage Decoupling & Anti-Short-Circuiting
+        Exercises: Two-stage decoupling guardrail, preventing local laziness on compound tasks.
+        Workflow:
+        - Compound prompt: "Research Google Flow credits on the web and formulate a comprehensive architecture plan to save in plan.md"
+        - Task has requires_file_mutation=True (because output will be saved to disk).
+        - Verify decision engine does NOT short-circuit to LOCAL_MACHINE.
+        - Verify Stage 1 correctly routes to CLOUD_OFFLOAD with two_stage_decoupled=True.
+        - Verify pure file edit without research remains LOCAL_MACHINE.
+        - Verify shell commands remain LOCAL_MACHINE.
+        """
+        compound_prompt = "Research Google Flow credits and model architecture, then formulate a comprehensive setup plan to write to plan.md"
+        eval_result = OffloadDecisionEngine.evaluate(compound_prompt, token_count=5000, requires_file_mutation=True)
+        self.assertEqual(eval_result["route"], "CLOUD_OFFLOAD")
+        self.assertTrue(eval_result["two_stage_decoupled"])
+        self.assertEqual(eval_result["stage"], "STAGE_1_CLOUD_INFERENCE")
+        self.assertTrue(eval_result["quota_conserved"])
+
+        # Compare with pure local file edit (no research/architecture)
+        pure_edit = "Update line 42 of settings.json to change timeout to 30"
+        local_result = OffloadDecisionEngine.evaluate(pure_edit, requires_file_mutation=True)
+        self.assertEqual(local_result["route"], "LOCAL_MACHINE")
+        self.assertFalse(local_result.get("two_stage_decoupled", False))
+
+        # Compare with shell command
+        shell_cmd = "Run pytest tests and commit branch"
+        shell_result = OffloadDecisionEngine.evaluate(shell_cmd, requires_local_shell=True)
+        self.assertEqual(shell_result["route"], "LOCAL_MACHINE")
+
 
 if __name__ == "__main__":
     unittest.main()

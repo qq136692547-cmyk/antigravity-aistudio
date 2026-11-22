@@ -275,6 +275,29 @@ Reserve desktop IDE model quota exclusively for file edits, Git, tests, and shel
 
 > **Tip**: Because global `~/.gemini/GEMINI.md` rules take precedence over individual plugin defaults, adding either preset enables seamless auto-offloading across all workspaces without modifying the plugin's safe default behavior for other users.
 
+### 5.4 Production Pitfall & Root-Cause Fix: Preventing Agent "Short-Circuiting" (Local Laziness Trap)
+
+During production deployments with compound requests (e.g., *"Research topic X on the web and formulate a comprehensive architecture plan artifact"*), multi-agent supervisor systems often exhibit a subtle failure mode: **Local Laziness Short-Circuiting**:
+
+1. **The Short-Circuiting Trap**:
+   - Because the desktop supervisor agent possesses native search tools (e.g. `search_web`) and filesystem capabilities (`write_file`), it takes the path of least resistance: executing web queries and burning hundreds of thousands of deep-thinking tokens locally on expensive desktop quotas.
+   - The agent falsely rationalizes: *"Because I will write a local artifact file at the end, this entire workflow counts as a local file modification."*
+   - As a result, proactive offloading silently fails on compound tasks unless the user manually reminds the agent every single turn.
+
+2. **The Two-Stage Decoupling Solution**:
+   To permanently prevent this regression and ensure true hands-free autonomy, `antigravity-aistudio` enforces **Two-Stage Decoupling with Hard Negative Guardrails**:
+   - **Stage 1 (Cloud Inference First)**: All background research, architectural evaluation, and drafting are strictly decoupled and dispatched to Google AI Studio via `invoke_subagent` (`TypeName: "browser"`). Local `search_web` calls or local deep CoT turns for research are strictly prohibited.
+   - **Stage 2 (Local Materialization)**: Once Google AI Studio returns the synthesized output, the desktop agent acts solely as a light file-system receiver, saving artifacts locally with near-zero desktop token consumption.
+   - **First-Action Gate**: For compound analysis/planning tasks, the supervisor's **very first tool call MUST be `invoke_subagent` (AI Studio)**. Performing local thinking or searching beforehand is classified as an offload violation.
+
+To enforce this in Preset B, add the hardened clause into your `~/.gemini/GEMINI.md`:
+```markdown
+- **Anti-Short-Circuiting Guardrails**:
+  - Prohibit local web searches for domain research; delegate to AI Studio with Google Search Grounding.
+  - Never conflate "writing a local plan/artifact later" with performing initial research/reasoning locally.
+  - First tool call for analysis/research tasks MUST be `invoke_subagent` (AI Studio).
+```
+
 ---
 
 ## 6. Modular Skills Suite Overview

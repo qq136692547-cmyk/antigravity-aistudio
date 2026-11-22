@@ -71,6 +71,14 @@ When an offload candidate is detected, follow the strict 6-stage lifecycle:
 5. **Output Extraction**: Capture model responses, generated structured data, or exported code snippets.
 6. **Local Synchronization**: Write extracted artifacts back to the workspace and execute local verification.
 
+### Anti-Short-Circuiting & Two-Stage Decoupling Protocol (Zero-Reminder Guardrail)
+
+To prevent supervisor agents from succumbing to the "local laziness trap" (short-circuiting offloads by reflexively using local `search_web` or performing deep reasoning locally under the excuse of "writing a local plan/artifact later"), the agent MUST strictly enforce two-stage decoupling:
+
+1. **Stage 1 (Cloud Inference First)**: Any task requiring architectural planning, domain research, multi-angle comparison, or content generation MUST be dispatched to Google AI Studio first via `invoke_subagent` (`TypeName: "browser"`). Calling local web-search tools or emitting extensive local thinking turns for these tasks is strictly prohibited.
+2. **Stage 2 (Local Materialization)**: Only after Google AI Studio inference completes and the payload is extracted may the local supervisor call local file tools (`write_file`, `apply_edits`) to record artifacts.
+3. **Action-Order Invariant**: When handling compound tasks ("research X and generate a plan file"), the supervisor's **very first tool call MUST be `invoke_subagent` (AI Studio)**. Performing local thinking or searches beforehand violates the offload contract.
+
 ## 4. Autonomy Modes (Checkpoint vs. Auto)
 
 Two execution modes govern cloud offloading workflows:

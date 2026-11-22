@@ -1140,6 +1140,7 @@ class OffloadDecisionEngine:
         token_count: int = 0,
         requires_local_shell: bool = False,
         requires_file_mutation: bool = False,
+        two_stage_decoupling: bool = True,
     ) -> Dict[str, Any]:
         """Evaluates whether a task should run locally or offload to Google AI Studio."""
         if not isinstance(task_description, str):
@@ -1161,8 +1162,8 @@ class OffloadDecisionEngine:
 
         desc_lower = task_description.lower()
 
-        # Hard local constraints take absolute precedence
-        if requires_local_shell or requires_file_mutation:
+        # Hard local shell execution takes absolute precedence
+        if requires_local_shell:
             return {
                 "route": "LOCAL_MACHINE",
                 "recommended_model": None,
@@ -1170,7 +1171,43 @@ class OffloadDecisionEngine:
                 "requires_segmentation": False,
                 "paid_gate": False,
                 "fallback_model": None,
-                "reason": "Local shell execution or direct workspace file mutation required",
+                "reason": "Local shell execution required",
+                "quota_conserved": False,
+            }
+
+        # Two-stage decoupling guardrail:
+        # If task requires file mutation or artifact recording, but also involves heavy research, planning, or architectural design,
+        # it MUST decouple into Stage 1 (CLOUD_OFFLOAD) first, rather than collapsing into LOCAL_MACHINE.
+        is_compound_thinking = any(
+            w in desc_lower for w in [
+                "research", "survey", "investigate", "architectural", "architecture",
+                "plan", "strategy", "compare", "tradeoff", "analysis", "analyze", "design"
+            ]
+        )
+        if requires_file_mutation:
+            if two_stage_decoupling and is_compound_thinking:
+                model = cls._select_gemini4_model(desc_lower, token_count=int(token_count))
+                is_carbon = model == "Gemini 4 Carbon"
+                return {
+                    "route": "CLOUD_OFFLOAD",
+                    "stage": "STAGE_1_CLOUD_INFERENCE",
+                    "two_stage_decoupled": True,
+                    "recommended_model": model,
+                    "thinking_level": "high",
+                    "requires_segmentation": bool(token_count > cls.CONTEXT_LIMIT_GEMINI4),
+                    "paid_gate": is_carbon,
+                    "fallback_model": "Gemini 4 Neon" if is_carbon else None,
+                    "reason": "Two-stage decoupling applied: offloading Stage 1 research/architecture to cloud before Stage 2 local file materialization",
+                    "quota_conserved": True,
+                }
+            return {
+                "route": "LOCAL_MACHINE",
+                "recommended_model": None,
+                "thinking_level": None,
+                "requires_segmentation": False,
+                "paid_gate": False,
+                "fallback_model": None,
+                "reason": "Direct workspace file mutation required without prior heavy cloud reasoning",
                 "quota_conserved": False,
             }
 
