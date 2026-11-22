@@ -1,90 +1,98 @@
 ---
 name: aistudio-parameter-tuning
-description: Model hyperparameter tuning in Google AI Studio covering temperature, top-p, top-k, thinking budget, safety filter thresholds, Google Search grounding, and Python code execution.
+description: Gemini 4 Run settings and Tools configuration in Google AI Studio covering Thinking level (floor >= High), Output length, Media resolution, Safety settings, Add stop sequence, Structured outputs, Code execution, Function calling, Grounding with Google Search, and URL context.
 ---
 
 # AI Studio Parameter Tuning Orchestrator
 
-Calibrate model hyperparameters, safety filter thresholds, grounding tools, and execution capabilities in **Google AI Studio** (`https://aistudio.google.com/`) to achieve optimal balance between creativity, determinism, reasoning depth, and factual verification.
+Calibrate **Gemini 4** `Run settings` and `Tools` in **Google AI Studio** (`https://aistudio.google.com/`) to enforce reasoning depth (`Thinking level >= High`), output limits, media fidelity, safety filter thresholds, and grounded execution tools.
+
+> **Gemini 4 UI Alignment Notice**: Google AI Studio's `Run settings` drawer for Gemini 4 has removed/hidden legacy `Temperature`, `Top-P`, `Top-K`, and numeric `Thinking budget` sliders. Behavior is governed directly by `Thinking level`, `Output length`, `Media resolution`, `Safety settings`, `Add stop sequence`, and the `Tools` panel.
 
 ## When to Use
 
-- The user wants to adjust generation randomness (temperature) for deterministic code generation versus creative writing.
-- The user needs to configure nucleus sampling (top-p) or candidate token pool size (top-k).
-- The user wants to tune the thinking budget for Gemini Flash Thinking on complex reasoning problems.
-- The user needs to relax or tighten content safety filter thresholds for specialized domain content.
-- The user wants to toggle Google Search grounding for real-time web retrieval or enable Python code execution for mathematical verification.
+- The user needs to select an authorized **Gemini 4** model and enforce **`Thinking level = High`** (Web UI) or `"high"` / `"xhigh"` (SDK/API `thinking_level`).
+- The user wants to configure `Output length` (up to `65536` or `32768` tokens), `Media resolution`, or custom `Add stop sequence` strings.
+- The user needs to relax or tighten content `Safety settings` across the 4 harm categories.
+- The user wants to toggle `Tools` (`Structured outputs`, `Code execution`, `Function calling`, `Grounding with Google Search`, or `URL context`).
 
-## Supported Hyperparameters and Controls
+## Supported Models, Run Settings, and Tools
 
-### 1. Model Selection
+### 1. Authorized Gemini 4 Model Selection
 
-Select the appropriate model tier in the top-right model dropdown:
-- **Gemini 2.5 Flash**: Default model for high-throughput, low-latency, and cost-effective cloud generation (1M context window).
-- **Gemini 2.5 Pro**: Flagship model for intricate architectural synthesis, deep analysis, and massive multimodal corpora (2M context window).
-- **Gemini Flash Thinking**: Specialized reasoning model with explicit internal scratchpad thinking tokens.
+Select one of the four authorized **Gemini 4** models (unified `1M` / `1,000,000` input context; **pre-Gemini-4 models are strictly prohibited**):
 
-### 2. Sampling Hyperparameters
+| Model | Context / Max Output | Tier / Gate | Web UI Default Thinking | Required Action |
+| :--- | :--- | :--- | :--- | :--- |
+| **`Gemini 4 Hydrogen`** (`gemini-4-hydrogen`) | 1M in / 64K (`65536`) out | Free & Paid (Default) | `High` | Verify `Thinking level = High`. |
+| **`Gemini 4 Argon`** (`gemini-4-argon`) | 1M in / 32K (`32768`) out | Pro / Paid | `Medium` | **Explicitly switch `Thinking level` to `High`.** |
+| **`Gemini 4 Neon`** (`gemini-4-neon`) | 1M in / 64K (`65536`) out | Pro / Paid | `High` | Verify `Thinking level = High`. |
+| **`Gemini 4 Carbon`** (`gemini-4-carbon`) | 1M in / 32K (`32768`) out | **Paid Gated** | `Medium` | **Explicitly switch `Thinking level` to `High`**; pause & offer Neon/Hydrogen fallback if `Unlock Gemini 4 Carbon` appears. |
 
-| Parameter | Valid Range | Default | Recommended Setting by Task |
+### 2. Gemini 4 Run Settings Controls
+
+| Control | Valid Values / Range | Default | Policy & Recommended Setting |
 | :--- | :--- | :--- | :--- |
-| **Temperature** | `0.0` to `2.0` | `1.0` (or `0.7`) | `0.0` - `0.2` for deterministic code, JSON extraction, math; `0.7` for general conversation; `1.2` - `1.5` for creative storytelling. |
-| **Top-P (Nucleus Sampling)** | `0.0` to `1.0` | `0.95` | `0.95` for standard generation; lower to `0.8` for more focused vocabulary; `1.0` for full distribution. |
-| **Top-K** | `1` to `100` | `40` | `40` for general text; lower values (`1` - `20`) restrict token choices to top candidates for stricter accuracy. |
-| **Thinking Budget** | `0` to `65,536` tokens (or Auto) | Auto | Use Auto for adaptive reasoning; set higher explicit budget (e.g., `8192` - `16384`) for complex math or algorithm proofs. |
+| **Thinking level** | Web UI: `High` (SDK/API: `"high"`, `"xhigh"`) | `High` (Hydrogen/Neon), `Medium` (Argon/Carbon) | **Floor `>= High`**: Web UI MUST be set to `High`; SDK/API allows `"high"` or `"xhigh"`. **`Low` and `Medium` are strictly forbidden.** |
+| **Output length** | `1` to `65536` (Hydrogen/Neon), `1` to `32768` (Argon/Carbon) | Model max (`65536` / `32768`) | Keep at `65536` (or `32768` on Argon/Carbon) for full-repo reviews and long code exports; cap lower only for concise schemas. |
+| **Media resolution** | `Default`, `Low`, `Medium`, `High` | `Default` | Set `High` for dense UI screenshots, diagrams, and fine-print PDFs; `Low` / `Medium` for coarse video frame scanning. |
+| **Add stop sequence** | String list | Empty | Add custom stop delimiters (e.g., `END_JSON`) when truncating structured templates. |
 
-### 3. Safety Filter Thresholds
+### 3. Safety Settings Thresholds
 
-Google AI Studio provides 4 adjustable safety categories:
+Google AI Studio provides 4 adjustable safety categories under `Safety settings`:
 - **Harassment** (`HARM_CATEGORY_HARASSMENT`)
 - **Hate Speech** (`HARM_CATEGORY_HATE_SPEECH`)
 - **Sexually Explicit** (`HARM_CATEGORY_SEXUALLY_EXPLICIT`)
 - **Dangerous Content** (`HARM_CATEGORY_DANGEROUS_CONTENT`)
 
 Each category supports 4 threshold levels:
-- **Block None**: Do not block any content based on this category (available with appropriate account verification).
-- **Block Few**: Block only high-probability harm content.
-- **Block Some** (Default): Block medium- and high-probability harm content.
-- **Block Most**: Strictly block low-, medium-, and high-probability harm content.
+- **`BLOCK_NONE`** (`Block None`): Do not block content based on this category (with appropriate account verification).
+- **`BLOCK_ONLY_HIGH`** (`Block Few`): Block only high-probability harm content.
+- **`BLOCK_MEDIUM_AND_ABOVE`** (`Block Some`, Default): Block medium- and high-probability harm content.
+- **`BLOCK_LOW_AND_ABOVE`** (`Block Most`): Strictly block low-, medium-, and high-probability harm content.
 
-### 4. Advanced Tools and Capabilities
+### 4. Tools Panel (Gemini 4 Capabilities)
 
-- **Google Search Grounding**: Toggle on to allow Gemini to execute real-time web searches, retrieve recent information, and provide inline source citations with clickable web URLs.
-- **Python Code Execution**: Toggle on to allow the model to write, compile, and execute Python code in a sandboxed runtime environment for calculations, data analysis, and symbolic mathematics.
+- **`Structured outputs`**: Enforce strict JSON Schema decoding directly in chat prompt or `/prompts/new_structured`.
+- **`Code execution`**: Sandboxed Python execution for symbolic math, algorithmic checks, and data transformation.
+- **`Function calling`**: Custom tool/function declarations (**Note: automatically disabled when `Grounding with Google Search` is enabled**).
+- **`Grounding with Google Search`**: Real-time web search and inline URL citations (**enabled by default in Gemini 4**; toggle off only if `Function calling` is required).
+- **`URL context`**: Directly fetches and reads full webpage body text from URLs included in the prompt.
 
 ## Workflow
 
-### Step 1: Open Settings Drawer in AI Studio
+### Step 1: Open Run Settings Drawer in AI Studio
 
-1. In any prompt view (`/prompts/new_chat`, `/prompts/new_structured`, or existing prompt), locate the **Model settings** panel in the right sidebar.
-2. If collapsed, click the settings toggle button in the top action bar to expand the parameter controls.
+1. In `/prompts/new_chat` or `/prompts/new_structured`, locate the **Run settings** panel in the right sidebar.
+2. Verify the selected model is an authorized **Gemini 4** model (`Hydrogen`, `Argon`, `Neon`, or `Carbon`).
+3. If `Unlock Gemini 4 Carbon` paywall appears, pause immediately (`PAID_TIER_REQUIRED`) and offer fallback to `Gemini 4 Neon (High)` or `Gemini 4 Hydrogen (High)`.
 
-### Step 2: Adjust Sampling Sliders
+### Step 2: Enforce Thinking Level >= High & Calibrate Run Settings
 
-1. **Set Temperature**: Drag the temperature slider or type the desired value in the input box within `[0.0, 2.0]`.
-2. **Expand Advanced Settings**: Click **Advanced settings** to expose Top-P and Top-K controls.
-3. **Set Top-P**: Enter target value within `[0.0, 1.0]`.
-4. **Set Top-K**: Enter target integer within `[1, 100]`.
-5. If using Gemini Flash Thinking, locate the **Thinking budget** slider and configure the token budget or select `Auto`.
+1. **Set `Thinking level` to `High`**: Open the `Thinking level` dropdown and explicitly verify or select **`High`** (mandatory on `Argon` and `Carbon`, which default to `Medium`). Never leave `Thinking level` on `Low` or `Medium`.
+2. **Set `Output length`**: Verify `Output length` fits the task (`<= 65536` for Hydrogen/Neon, `<= 32768` for Argon/Carbon).
+3. **Set `Media resolution`**: Choose `High` for high-detail images/PDFs or `Default` for text-only tasks.
+4. **Configure `Add stop sequence`**: Add stop sequences if deterministic delimiter stopping is needed.
 
 ### Step 3: Configure Safety Filter Settings
 
-1. Click **Safety settings** in the sidebar.
-2. In the safety modal, inspect current thresholds across all 4 harm categories.
-3. Adjust sliders according to task requirements (e.g., adjust threshold to "Block Few" for security vulnerability research).
-4. Save safety configurations.
+1. Click **Safety settings** in the `Run settings` sidebar.
+2. Inspect current thresholds across all 4 harm categories (`Harassment`, `Hate Speech`, `Sexually Explicit`, `Dangerous Content`).
+3. Adjust thresholds according to task requirements (e.g., `BLOCK_ONLY_HIGH` for security vulnerability research) and save.
 
-### Step 4: Toggle Tools (Grounding and Code Execution)
+### Step 4: Configure Tools Panel
 
-1. Under the **Tools** section in the settings drawer:
-   - Enable **Google Search** if the prompt requires current factual data or external references.
-   - Enable **Code execution** if the prompt requires algorithmic computation or numerical calculations.
-2. Confirm active tool indicators are highlighted in the UI.
+1. Under **Tools** in the right sidebar:
+   - Toggle **Structured outputs** and supply JSON Schema when strict JSON is needed.
+   - Keep **Grounding with Google Search** enabled (default in Gemini 4) for live web verification, or toggle it **off** when **Function calling** is required (since Search disables Function calling).
+   - Enable **URL context** when the prompt supplies specific documentation/article URLs to read verbatim.
+   - Enable **Code execution** for mathematical or algorithmic verification.
 
 ### Step 5: Test and Verify Parameter Behavior
 
-1. Execute test prompts to verify the model exhibits expected behavioral changes:
-   - Verify low temperature produces deterministic, repeatable outputs.
-   - Verify search grounding returns populated search queries and grounded sources.
-   - Verify code execution displays executed Python code blocks and standard output.
-2. Document the final calibrated hyperparameter preset in the project documentation or prompt metadata.
+1. Execute test prompts and confirm:
+   - `Thinking level = High` reasoning traces / deep synthesis behave as expected.
+   - `Grounding with Google Search` / `URL context` return grounded citations and fetched page details.
+   - `Code execution` displays executed Python blocks and standard output.
+2. Document the calibrated Gemini 4 configuration in project documentation or exported SDK code.

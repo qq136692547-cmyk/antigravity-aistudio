@@ -68,20 +68,20 @@ class TestTier2BoundaryCorner(unittest.TestCase):
     def test_f1_b02_manifest_invalid_semver_format(self):
         """F1-B2: ManifestValidator rejects invalid semver formats (e.g. 'v1.0', 'beta')."""
         bad_manifest = dict(CANONICAL_FIXTURES["valid_manifest"])
-        for bad_ver in ["v1.0.0", "1.0", "beta-1", "0.1.0-alpha"]:
+        for bad_ver in ["v1.0.0", "1.0", "beta-1", "0.2.0-alpha"]:
             bad_manifest["version"] = bad_ver
             errors = ManifestValidator.validate_manifest_dict(bad_manifest)
             self.assertTrue(any("version" in e.lower() for e in errors), f"Should reject {bad_ver}")
 
     def test_f1_b03_manifest_malformed_json_syntax(self):
         """F1-B3: ManifestValidator rejects malformed JSON strings."""
-        malformed_json = '{"name": "antigravity-aistudio", "version": "0.1.0", unclosed_key}'
+        malformed_json = '{"name": "antigravity-aistudio", "version": "0.2.0", unclosed_key}'
         with self.assertRaises(json.JSONDecodeError):
             json.loads(malformed_json)
 
     def test_f1_b04_manifest_missing_mandatory_keys(self):
         """F1-B4: ManifestValidator detects and reports missing mandatory keys."""
-        incomplete_manifest = {"name": "antigravity-aistudio", "version": "0.1.0"}
+        incomplete_manifest = {"name": "antigravity-aistudio", "version": "0.2.0"}
         errors = ManifestValidator.validate_manifest_dict(incomplete_manifest)
         self.assertGreater(len(errors), 3)
 
@@ -318,10 +318,11 @@ class TestTier2BoundaryCorner(unittest.TestCase):
         self.assertEqual(res["route"], "LOCAL_MACHINE")
 
     def test_f7_b05_offload_extreme_token_count_overflow(self):
-        """F7-B5: Extreme token count (5,000,000 tokens) selects Gemini 2.5 Pro."""
+        """F7-B5: Extreme token count (5,000,000 tokens) selects Gemini 4 Neon and flags requires_segmentation."""
         res = OffloadDecisionEngine.evaluate("Massive repository analysis", token_count=5000000)
         self.assertEqual(res["route"], "CLOUD_OFFLOAD")
-        self.assertEqual(res["recommended_model"], "Gemini 2.5 Pro")
+        self.assertEqual(res["recommended_model"], "Gemini 4 Neon")
+        self.assertTrue(res["requires_segmentation"])
 
     # =========================================================================
     # Feature 8: Autonomy Modes (checkpoint vs auto) - 5 Boundary Tests
@@ -490,9 +491,17 @@ class TestTier2BoundaryCorner(unittest.TestCase):
         self.assertTrue(any("token threshold" in e.lower() or "positive" in e.lower() for e in errors))
 
     def test_f12_b05_matrix_deprecated_model_names(self):
-        """F12-B5: Flags references to retired or obsolete legacy models."""
-        errors = ParameterTuningValidator.validate_model_name("palm-2")
-        self.assertTrue(any("deprecated" in e.lower() or "retired" in e.lower() for e in errors))
+        """F12-B5: Flags references to all retired pre-Gemini-4 models and accepts Gemini 4 models."""
+        deprecated = [
+            "palm-2", "gemini-1.0-ultra", "gemini-1.5-pro", "gemini-2.0-flash",
+            "gemini-2.5-pro", "gemini-2.5-flash", "gemini-flash-thinking",
+            "gemini-3-flash-preview", "gemini-3.1-pro-preview", "gemini-3.8-flash",
+        ]
+        for m in deprecated:
+            errors = ParameterTuningValidator.validate_model_name(m)
+            self.assertTrue(any("deprecated" in e.lower() or "retired" in e.lower() for e in errors), f"Should reject {m}")
+        for ok in ["gemini-4-hydrogen", "gemini-4-argon", "gemini-4-neon", "gemini-4-carbon"]:
+            self.assertEqual(ParameterTuningValidator.validate_model_name(ok), [], f"Should accept {ok}")
 
     # =========================================================================
     # Feature 13: Skill: aistudio-chat-prompt - 5 Boundary Tests
@@ -558,34 +567,50 @@ class TestTier2BoundaryCorner(unittest.TestCase):
         self.assertTrue(any("quote" in e.lower() or "csv" in e.lower() for e in errors))
 
     # =========================================================================
-    # Feature 15: Skill: aistudio-parameter-tuning - 5 Boundary Tests
+    # Feature 15: Skill: aistudio-parameter-tuning - 6 Boundary Tests
     # =========================================================================
 
-    def test_f15_b01_param_tuning_temperature_below_zero(self):
-        """F15-B1: Temperature below 0.0 is out of valid range [0.0, 2.0]."""
-        errors = ParameterTuningValidator.validate_hyperparameters({"temperature": -0.1})
-        self.assertTrue(any("temperature" in e.lower() for e in errors))
+    def test_f15_b01_param_tuning_thinking_level_rejects_low_and_medium(self):
+        """F15-B1: Thinking level rejects 'low' and 'medium' and accepts 'high' / 'xhigh'."""
+        for bad_lvl in ["low", "medium", "LOW", "Medium", "", "auto"]:
+            errors = ParameterTuningValidator.validate_thinking_level(bad_lvl)
+            self.assertGreater(len(errors), 0, f"Should reject thinking_level={bad_lvl!r}")
+        for good_lvl in ["high", "xhigh", "HIGH", "XHIGH"]:
+            errors = ParameterTuningValidator.validate_thinking_level(good_lvl)
+            self.assertEqual(errors, [], f"Should accept thinking_level={good_lvl!r}: {errors}")
 
-    def test_f15_b02_param_tuning_temperature_above_two(self):
-        """F15-B2: Temperature above 2.0 is out of valid range [0.0, 2.0]."""
-        errors = ParameterTuningValidator.validate_hyperparameters({"temperature": 2.5})
-        self.assertTrue(any("temperature" in e.lower() for e in errors))
+    def test_f15_b02_param_tuning_rejects_removed_legacy_sliders(self):
+        """F15-B2: Legacy sliders removed in Gemini 4 (temperature, top_p, top_k, thinking_budget) are rejected."""
+        for legacy_key, val in [("temperature", 0.7), ("top_p", 0.95), ("top_k", 40), ("thinking_budget", 8192)]:
+            errors = ParameterTuningValidator.validate_hyperparameters({legacy_key: val})
+            self.assertTrue(any("removed" in e.lower() or "gemini 4" in e.lower() for e in errors), f"Should reject {legacy_key}")
 
-    def test_f15_b03_param_tuning_top_p_out_of_bounds(self):
-        """F15-B3: top_p outside [0.0, 1.0] is out of bounds."""
-        for p in [-0.01, 1.05]:
-            errors = ParameterTuningValidator.validate_hyperparameters({"top_p": p})
-            self.assertTrue(any("top_p" in e.lower() for e in errors))
+    def test_f15_b03_param_tuning_output_length_bounds(self):
+        """F15-B3: Output length enforces model caps (65536 Hydrogen/Neon, 32768 Argon/Carbon)."""
+        self.assertEqual(ParameterTuningValidator.validate_output_length(65536, "gemini-4-hydrogen"), [])
+        self.assertEqual(ParameterTuningValidator.validate_output_length(32768, "gemini-4-argon"), [])
+        self.assertGreater(len(ParameterTuningValidator.validate_output_length(0, "gemini-4-hydrogen")), 0)
+        self.assertGreater(len(ParameterTuningValidator.validate_output_length(65537, "gemini-4-neon")), 0)
+        self.assertGreater(len(ParameterTuningValidator.validate_output_length(32769, "gemini-4-carbon")), 0)
 
-    def test_f15_b04_param_tuning_negative_top_k(self):
-        """F15-B4: top_k <= 0 is out of bounds."""
-        errors = ParameterTuningValidator.validate_hyperparameters({"top_k": 0})
-        self.assertTrue(any("top_k" in e.lower() for e in errors))
+    def test_f15_b04_param_tuning_media_resolution_bounds(self):
+        """F15-B4: Media resolution only permits default, low, medium, high."""
+        for ok_res in ["default", "low", "medium", "high"]:
+            self.assertEqual(ParameterTuningValidator.validate_media_resolution(ok_res), [])
+        self.assertGreater(len(ParameterTuningValidator.validate_media_resolution("ultra")), 0)
 
     def test_f15_b05_param_tuning_invalid_safety_threshold_string(self):
         """F15-B5: Invalid safety filter threshold string is rejected."""
         errors = ParameterTuningValidator.validate_hyperparameters({"safety_threshold": "BLOCK_EVERYTHING_ALWAYS"})
         self.assertTrue(any("safety" in e.lower() or "threshold" in e.lower() for e in errors))
+
+    def test_f15_b06_param_tuning_carbon_paid_gate_fallback(self):
+        """F15-B6: Unlock Gemini 4 Carbon paid gate pauses and offers Neon/Hydrogen (High) fallback."""
+        sim = WorkflowSimulator.simulate_paid_gate_detection({"mode": "auto", "banner": "Unlock Gemini 4 Carbon"})
+        self.assertEqual(sim["status"], "PAUSED_PAID_TIER_REQUIRED")
+        self.assertTrue(sim["automated_retry_aborted"])
+        self.assertIn("Gemini 4 Neon (High)", sim["fallback_options"])
+        self.assertIn("Gemini 4 Hydrogen (High)", sim["fallback_options"])
 
     # =========================================================================
     # Feature 16: Skill: aistudio-code-export - 5 Boundary Tests
@@ -672,7 +697,7 @@ class TestTier2BoundaryCorner(unittest.TestCase):
 
     def test_f18_b04_checklist_empty_pruning_section(self):
         """F18-B4: Flags checklist missing or having empty deprecation/pruning section."""
-        content = "# Checklist\nCalibration: 2026-11-21\n## Surfaces\n1. Dashboard"
+        content = "# Checklist\nCalibration: 2026-11-22\n## Surfaces\n1. Dashboard"
         errors = MarkdownTableValidator.validate_checklist_markdown(content)
         self.assertTrue(any("prun" in e.lower() or "deprecat" in e.lower() for e in errors))
 

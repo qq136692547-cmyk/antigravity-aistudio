@@ -1,18 +1,18 @@
 ---
 name: aistudio-structured-prompt
-description: Tabular few-shot structured prompting in Google AI Studio with input/output example columns, test case evaluation, JSON schema outputs, and CSV batch import/export.
+description: Tabular few-shot structured prompting in Google AI Studio with Gemini 4 (Thinking >= High), input/output example columns, test case evaluation, Structured outputs JSON schema, and CSV batch import/export.
 ---
 
 # AI Studio Structured Prompt Orchestrator
 
-Design, test, and evaluate tabular few-shot structured prompts and JSON schema constrained outputs in **Google AI Studio** (`https://aistudio.google.com/prompts/new_structured`) to offload data extraction, classification, and schema enforcement workloads to cloud models.
+Design, test, and evaluate tabular few-shot structured prompts and JSON schema constrained outputs in **Google AI Studio** (`https://aistudio.google.com/prompts/new_structured` or via the chat `Structured outputs` tool) on **Gemini 4** (`Thinking level = High`) to offload data extraction, classification, and schema enforcement workloads to cloud models.
 
 ## When to Use
 
 - The user wants to construct few-shot prompts using a table of input and output examples.
-- The user needs guaranteed JSON structured outputs conforming to a strict JSON schema.
+- The user needs guaranteed JSON structured outputs conforming to a strict JSON schema (`Structured outputs` in `/prompts/new_structured` or `/prompts/new_chat`).
 - The user wants to run batch evaluations across multiple test cases without local model quota expenditure.
-- The user wants to import an existing tabular dataset via CSV, run cloud inference across rows, and export results back to the local workspace.
+- The user wants to import an existing tabular dataset via CSV, run cloud inference across rows on `Gemini 4 Hydrogen` or `Gemini 4 Neon` (`Thinking level = High`), and export results back to the local workspace.
 
 ## Workflow
 
@@ -20,7 +20,7 @@ Design, test, and evaluate tabular few-shot structured prompts and JSON schema c
 
 1. Delegate to the `browser` subagent (`TypeName: "browser"`, `Model: "flash"`) targeting `https://aistudio.google.com/prompts/new_structured`.
 2. Confirm active session via Fast-Path Authentication Check (user avatar visible, structured table editor loaded, RPC status HTTP 200).
-3. If fast-path authentication succeeds, proceed directly to table definition.
+3. Select `Gemini 4 Hydrogen` (default for structured extraction/synthetic batches) or `Gemini 4 Neon`, and verify **`Thinking level = High`** in `Run settings` (`Low` and `Medium` are strictly forbidden).
 
 ### Step 2: Configure Table Schema and Columns
 
@@ -39,9 +39,8 @@ Design, test, and evaluate tabular few-shot structured prompts and JSON schema c
 
 ### Step 4: Configure JSON Schema Structured Outputs
 
-1. In the right-hand settings drawer, open the **Response format** or **Structured output** section.
-2. Select **JSON** response format.
-3. Supply a valid JSON schema definition specifying expected types, required properties, and descriptions. For example:
+1. In the right-hand `Tools` panel (or response format drawer), enable **`Structured outputs`**.
+2. Supply a valid JSON schema definition specifying expected types, required properties, and descriptions. For example:
 
 ```json
 {
@@ -58,13 +57,13 @@ Design, test, and evaluate tabular few-shot structured prompts and JSON schema c
 }
 ```
 
-4. Verify that schema validation passes without syntax errors in the AI Studio editor.
+3. Verify that schema validation passes without syntax errors in the AI Studio editor.
 
 ### Step 5: Add Test Cases and Run Cloud Evaluation
 
 1. In the **Test your prompt** section below the few-shot table, add one or more test cases.
 2. Input the test values for each input column.
-3. In `checkpoint` mode (default), present the test cases and example count to the user before running. In `auto` mode, trigger batch execution immediately.
+3. In `checkpoint` mode (default), present the test cases, Gemini 4 model (`Thinking level: High`), and example count to the user before running. In `auto` mode, trigger batch execution immediately.
 4. Click `Run all test cases` or click `Run` on individual test rows.
 5. Inspect the generated model outputs in the output column cells:
    - Confirm outputs adhere to the configured JSON schema.

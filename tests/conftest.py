@@ -503,7 +503,14 @@ class SubagentDelegationValidator:
     """Validates browser subagent delegation payloads, parameters, and lifecycle contracts."""
 
     ALLOWED_TYPENAMES: Set[str] = {"browser"}
-    ALLOWED_MODELS: Set[str] = {"flash", "pro", "flash-thinking", "gemini-2.5-flash", "gemini-2.5-pro"}
+    ALLOWED_SUBAGENT_MODELS: Set[str] = {"flash"}
+    ALLOWED_CLOUD_MODELS: Set[str] = {
+        "gemini-4-hydrogen",
+        "gemini-4-argon",
+        "gemini-4-neon",
+        "gemini-4-carbon",
+    }
+    ALLOWED_MODELS: Set[str] = ALLOWED_SUBAGENT_MODELS
     BRITTLE_CSS_PATTERN = re.compile(
         r"(\bdiv\.[a-zA-Z0-9_-]+|\b>\s*button|:nth-child\(\d+\)|button\.[a-zA-Z0-9_-]+:[a-z]+|#[a-zA-Z0-9_-]+\s*>)",
         re.IGNORECASE,
@@ -669,7 +676,7 @@ class SafetyBoundariesValidator:
         except ValueError:
             return [f"Invalid calibration date format '{date_str}'; expected YYYY-MM-DD"]
 
-        ref_date = datetime(2026, 11, 21)
+        ref_date = datetime(2026, 11, 22)
         delta_days = (ref_date - cal_date).days
         if delta_days > max_days:
             return [f"Calibration date '{date_str}' is stale ({delta_days} days old > {max_days} days allowed); recalibration required"]
@@ -757,19 +764,64 @@ class StagingContractValidator:
 
 
 class ParameterTuningValidator:
-    """Validates model hyperparameters, safety thresholds, model names, and token limits."""
+    """Validates Gemini 4 Run settings, thinking level floor (>= High), safety thresholds, and model names."""
 
     VALID_SAFETY_THRESHOLDS: Set[str] = {
         "BLOCK_NONE", "BLOCK_ONLY_HIGH", "BLOCK_MEDIUM_AND_ABOVE", "BLOCK_LOW_AND_ABOVE"
     }
+    AUTHORIZED_GEMINI4_MODELS: Set[str] = {
+        "gemini-4-hydrogen", "gemini-4-argon", "gemini-4-neon", "gemini-4-carbon",
+        "gemini 4 hydrogen", "gemini 4 argon", "gemini 4 neon", "gemini 4 carbon",
+    }
     DEPRECATED_MODELS: Set[str] = {
-        "palm-2", "text-bison-001", "chat-bison-001", "gemini-1.0-ultra"
+        "palm-2", "text-bison", "chat-bison", "text-bison-001", "chat-bison-001",
+        "gemini-1.0-pro", "gemini-1.0-ultra",
+        "gemini-1.5-pro", "gemini-1.5-flash",
+        "gemini-2.0-flash", "gemini-2.0-pro",
+        "gemini-2.5-pro", "gemini-2.5-flash", "gemini-flash-thinking",
+        "gemini-3-flash-preview", "gemini-3.1-pro-preview", "gemini-3.8-flash",
+    }
+    DEPRECATED_PREFIXES: Tuple[str, ...] = (
+        "palm", "text-bison", "chat-bison",
+        "gemini-1.", "gemini-2.", "gemini-3.", "gemini-flash-thinking",
+        "gemini 1.", "gemini 2.", "gemini 3.",
+    )
+    ALLOWED_THINKING_LEVELS: Set[str] = {"high", "xhigh"}
+    FORBIDDEN_THINKING_LEVELS: Set[str] = {"low", "medium"}
+    VALID_MEDIA_RESOLUTIONS: Set[str] = {"default", "low", "medium", "high"}
+    REMOVED_GEMINI4_SLIDERS: Set[str] = {"temperature", "top_p", "top_k", "thinking_budget"}
+    MAX_OUTPUT_LENGTH_BY_MODEL: Dict[str, int] = {
+        "gemini-4-hydrogen": 65536,
+        "gemini-4-neon": 65536,
+        "gemini-4-argon": 32768,
+        "gemini-4-carbon": 32768,
     }
 
     @classmethod
-    def validate_temperature(cls, temperature: float) -> List[str]:
-        if not isinstance(temperature, (int, float)) or not (0.0 <= float(temperature) <= 2.0):
-            return [f"Field 'temperature' ({temperature}) out of valid range [0.0, 2.0]"]
+    def validate_thinking_level(cls, thinking_level: Any) -> List[str]:
+        if not isinstance(thinking_level, str) or not thinking_level.strip():
+            return ["Field 'thinking_level' cannot be empty; must be 'high' or 'xhigh'"]
+        lvl = thinking_level.strip().lower()
+        if lvl in cls.FORBIDDEN_THINKING_LEVELS:
+            return [f"Thinking level '{thinking_level}' is forbidden; Gemini 4 offload floor requires >= High ('high' or 'xhigh')"]
+        if lvl not in cls.ALLOWED_THINKING_LEVELS:
+            return [f"Unsupported thinking_level '{thinking_level}'; allowed values are {sorted(cls.ALLOWED_THINKING_LEVELS)}"]
+        return []
+
+    @classmethod
+    def validate_output_length(cls, output_length: Any, model_name: Optional[str] = None) -> List[str]:
+        max_len = 65536
+        if model_name:
+            mn = str(model_name).strip().lower().replace(" ", "-")
+            max_len = cls.MAX_OUTPUT_LENGTH_BY_MODEL.get(mn, 65536)
+        if isinstance(output_length, bool) or not isinstance(output_length, int) or not (1 <= output_length <= max_len):
+            return [f"Field 'output_length' ({output_length}) out of valid range [1, {max_len}]"]
+        return []
+
+    @classmethod
+    def validate_media_resolution(cls, resolution: Any) -> List[str]:
+        if not isinstance(resolution, str) or resolution.strip().lower() not in cls.VALID_MEDIA_RESOLUTIONS:
+            return [f"Invalid media_resolution '{resolution}'; must be one of {sorted(cls.VALID_MEDIA_RESOLUTIONS)}"]
         return []
 
     @classmethod
@@ -778,20 +830,18 @@ class ParameterTuningValidator:
         if not isinstance(params, dict):
             return ["Hyperparameters must be a dictionary"]
 
-        if "temperature" in params:
-            t = params["temperature"]
-            if not isinstance(t, (int, float)) or not (0.0 <= float(t) <= 2.0):
-                errors.append(f"Field 'temperature' ({t}) out of valid range [0.0, 2.0]")
+        for removed in sorted(cls.REMOVED_GEMINI4_SLIDERS):
+            if removed in params:
+                errors.append(f"Legacy parameter '{removed}' was removed in Gemini 4 Run settings; use Thinking level (>= High) and Output length")
 
-        if "top_p" in params:
-            p = params["top_p"]
-            if not isinstance(p, (int, float)) or not (0.0 <= float(p) <= 1.0):
-                errors.append(f"Field 'top_p' ({p}) out of valid range [0.0, 1.0]")
+        if "thinking_level" in params:
+            errors.extend(cls.validate_thinking_level(params["thinking_level"]))
 
-        if "top_k" in params:
-            k = params["top_k"]
-            if not isinstance(k, int) or k < 1:
-                errors.append(f"Field 'top_k' ({k}) must be an integer >= 1")
+        if "output_length" in params:
+            errors.extend(cls.validate_output_length(params["output_length"], params.get("model")))
+
+        if "media_resolution" in params:
+            errors.extend(cls.validate_media_resolution(params["media_resolution"]))
 
         if "safety_threshold" in params:
             st = params["safety_threshold"]
@@ -810,8 +860,10 @@ class ParameterTuningValidator:
         if not model_name or not str(model_name).strip():
             return ["Model name cannot be empty"]
         mn_lower = str(model_name).strip().lower()
-        if mn_lower in cls.DEPRECATED_MODELS:
-            return [f"Model '{model_name}' is deprecated or retired; use canonical Gemini 2.5 / 2.0 models"]
+        if mn_lower in cls.DEPRECATED_MODELS or mn_lower.startswith(cls.DEPRECATED_PREFIXES):
+            return [f"Model '{model_name}' is deprecated or retired; use authorized Gemini 4 models (Hydrogen, Argon, Neon, Carbon)"]
+        if mn_lower not in cls.AUTHORIZED_GEMINI4_MODELS:
+            return [f"Model '{model_name}' is not an authorized Gemini 4 cloud model"]
         return []
 
 
@@ -945,27 +997,31 @@ class PromptToSkillRouter:
     SKILL_ROUTING_TABLE = {
         "aistudio-offload": {
             "keywords": ["offload", "cloud agent", "conserve quota", "heavy reasoning", "distributed consensus", "architecture"],
-            "target_model": "Gemini Flash Thinking",
+            "target_model": "Gemini 4 Neon",
             "reference": "references/offload-decision-matrix.md",
         },
         "aistudio-chat-prompt": {
             "keywords": ["chat", "multi-turn", "system instruction", "conversational", "transcript"],
-            "target_model": "Gemini 2.5 Flash",
+            "target_model": "Gemini 4 Hydrogen",
             "staging_dir": "browser_sandbox/uploads/",
         },
         "aistudio-structured-prompt": {
             "keywords": ["structured", "few-shot", "tabular", "json schema", "response schema", "test cases"],
-            "target_model": "Gemini 2.5 Pro",
+            "target_model": "Gemini 4 Hydrogen",
             "output_format": "JSON",
         },
         "aistudio-parameter-tuning": {
-            "keywords": ["tune", "temperature", "top-p", "top-k", "safety settings", "safety threshold", "thinking budget"],
-            "target_model": "Gemini 2.5 Pro",
-            "param_bounds": {"temperature": (0.0, 2.0), "top_p": (0.0, 1.0), "top_k": (1, 100)},
+            "keywords": ["tune", "thinking level", "output length", "media resolution", "safety settings", "safety threshold", "url context", "stop sequence"],
+            "target_model": "Gemini 4 Neon",
+            "param_bounds": {
+                "thinking_level": ("high", "xhigh"),
+                "output_length": (1, 65536),
+                "media_resolution": ("default", "low", "medium", "high"),
+            },
         },
         "aistudio-code-export": {
             "keywords": ["export", "get code", "python code", "gemini_api_key", "sdk", "curl", "rest"],
-            "target_model": "Gemini 2.5 Pro",
+            "target_model": "Gemini 4 Hydrogen",
             "env_var": "GEMINI_API_KEY",
         },
         "aistudio-ui-sync-audit": {
@@ -1063,7 +1119,19 @@ class OffloadDecisionEngine:
     ]
 
     TOKEN_THRESHOLD_CLOUD = 4000
-    CONTEXT_LIMIT_FLASH = 1000000
+    CONTEXT_LIMIT_GEMINI4 = 1000000
+
+    @classmethod
+    def _select_gemini4_model(cls, desc_lower: str, token_count: int = 0) -> str:
+        if any(w in desc_lower for w in ["extreme", "liveness", "math proof", "hardest", "carbon"]):
+            return "Gemini 4 Carbon"
+        if token_count > cls.CONTEXT_LIMIT_GEMINI4 or any(
+            w in desc_lower for w in ["reasoning", "architectural", "architecture", "multimodal", "64k", "neon"]
+        ):
+            return "Gemini 4 Neon"
+        if any(w in desc_lower for w in ["debug", "troubleshoot", "argon"]):
+            return "Gemini 4 Argon"
+        return "Gemini 4 Hydrogen"
 
     @classmethod
     def evaluate(
@@ -1083,6 +1151,10 @@ class OffloadDecisionEngine:
             return {
                 "route": "LOCAL_MACHINE",
                 "recommended_model": None,
+                "thinking_level": None,
+                "requires_segmentation": False,
+                "paid_gate": False,
+                "fallback_model": None,
                 "reason": "Empty task description defaults to local execution",
                 "quota_conserved": False,
             }
@@ -1094,6 +1166,10 @@ class OffloadDecisionEngine:
             return {
                 "route": "LOCAL_MACHINE",
                 "recommended_model": None,
+                "thinking_level": None,
+                "requires_segmentation": False,
+                "paid_gate": False,
+                "fallback_model": None,
                 "reason": "Local shell execution or direct workspace file mutation required",
                 "quota_conserved": False,
             }
@@ -1104,22 +1180,25 @@ class OffloadDecisionEngine:
                 return {
                     "route": "LOCAL_MACHINE",
                     "recommended_model": None,
+                    "thinking_level": None,
+                    "requires_segmentation": False,
+                    "paid_gate": False,
+                    "fallback_model": None,
                     "reason": f"Matched local task requirement: '{kw}'",
                     "quota_conserved": False,
                 }
 
         # Large token context offload
         if token_count >= cls.TOKEN_THRESHOLD_CLOUD:
-            if token_count > cls.CONTEXT_LIMIT_FLASH:
-                model = "Gemini 2.5 Pro"
-            elif any(w in desc_lower for w in ["reasoning", "thinking", "prove", "proof", "architectural"]):
-                model = "Gemini Flash Thinking"
-            else:
-                model = "Gemini 2.5 Flash"
-
+            model = cls._select_gemini4_model(desc_lower, token_count=int(token_count))
+            is_carbon = model == "Gemini 4 Carbon"
             return {
                 "route": "CLOUD_OFFLOAD",
                 "recommended_model": model,
+                "thinking_level": "high",
+                "requires_segmentation": bool(token_count > cls.CONTEXT_LIMIT_GEMINI4),
+                "paid_gate": is_carbon,
+                "fallback_model": "Gemini 4 Neon" if is_carbon else None,
                 "reason": f"High token count ({token_count} >= {cls.TOKEN_THRESHOLD_CLOUD}) offloaded to cloud to conserve desktop quota",
                 "quota_conserved": True,
             }
@@ -1127,16 +1206,15 @@ class OffloadDecisionEngine:
         # Cloud candidate keywords
         for kw in cls.CLOUD_KEYWORDS:
             if kw in desc_lower:
-                if "reasoning" in desc_lower or "thinking" in desc_lower:
-                    model = "Gemini Flash Thinking"
-                elif "export" in desc_lower or "structured" in desc_lower:
-                    model = "Gemini 2.5 Pro"
-                else:
-                    model = "Gemini 2.5 Flash"
-
+                model = cls._select_gemini4_model(desc_lower, token_count=int(token_count))
+                is_carbon = model == "Gemini 4 Carbon"
                 return {
                     "route": "CLOUD_OFFLOAD",
                     "recommended_model": model,
+                    "thinking_level": "high",
+                    "requires_segmentation": bool(token_count > cls.CONTEXT_LIMIT_GEMINI4),
+                    "paid_gate": is_carbon,
+                    "fallback_model": "Gemini 4 Neon" if is_carbon else None,
                     "reason": f"Matched cloud offload candidate workflow: '{kw}'",
                     "quota_conserved": True,
                 }
@@ -1145,6 +1223,10 @@ class OffloadDecisionEngine:
         return {
             "route": "LOCAL_MACHINE",
             "recommended_model": None,
+            "thinking_level": None,
+            "requires_segmentation": False,
+            "paid_gate": False,
+            "fallback_model": None,
             "reason": "Lightweight task below cloud offload threshold",
             "quota_conserved": False,
         }
@@ -1210,6 +1292,9 @@ class WorkflowSimulator:
                 "status": "SUCCESS",
                 "route": eval_res["route"],
                 "model_used": eval_res["recommended_model"],
+                "requires_segmentation": eval_res["requires_segmentation"],
+                "paid_gate": eval_res["paid_gate"],
+                "fallback_model": eval_res["fallback_model"],
                 "staged_input": f"{CANONICAL_STAGING_PATHS['uploads']}{staged_filename}",
                 "staged_file_created": staged_file.is_file(),
                 "staged_file_bytes": staged_file.stat().st_size,
@@ -1279,10 +1364,27 @@ class WorkflowSimulator:
                 "boundary_triggered": "429 ResourceExhausted",
                 "autonomy_mode_before": autonomy_mode,
                 "autonomy_mode_after": "paused_for_user",
-                "recovery_suggestion": "Switch model from Gemini Pro to Gemini Flash or wait for reset window",
+                "recovery_suggestion": "Switch model from Gemini 4 Carbon / Neon to Gemini 4 Hydrogen (High) or wait for reset window",
                 "automated_retry_aborted": True,
             }
 
+        return {"status": "CONTINUE", "boundary_triggered": None}
+
+    @classmethod
+    def simulate_paid_gate_detection(cls, exec_spec: Dict[str, Any]) -> Dict[str, Any]:
+        """Detects Unlock Gemini 4 Carbon paid gate and offers Neon/Hydrogen (High) fallback."""
+        cls._verify_rules_contract()
+        autonomy_mode = exec_spec.get("mode", "auto")
+        banner = exec_spec.get("banner", "")
+        if "Unlock Gemini 4 Carbon" in banner or exec_spec.get("paid_gate", False):
+            return {
+                "status": "PAUSED_PAID_TIER_REQUIRED",
+                "boundary_triggered": "Unlock Gemini 4 Carbon",
+                "autonomy_mode_before": autonomy_mode,
+                "autonomy_mode_after": "paused_for_user",
+                "fallback_options": ["Gemini 4 Neon (High)", "Gemini 4 Hydrogen (High)"],
+                "automated_retry_aborted": True,
+            }
         return {"status": "CONTINUE", "boundary_triggered": None}
 
     @classmethod
@@ -1295,16 +1397,23 @@ class WorkflowSimulator:
             {"role": "model", "content": "Vector indexing organizes embeddings..."},
             {"role": "user", "content": "Compare HNSW and IVF."},
         ])
-        temperature = chat_spec.get("temperature", 0.7)
+        thinking_level = chat_spec.get("thinking_level", "high")
+        output_length = chat_spec.get("output_length", 65536)
+        model = chat_spec.get("model", "gemini-4-hydrogen")
 
-        # Validate temperature
-        temp_errors = ParameterTuningValidator.validate_temperature(temperature)
-        if temp_errors:
-            return {"status": "FAILED", "error": temp_errors[0]}
+        # Validate thinking_level (>= High floor) and output_length
+        tl_errors = ParameterTuningValidator.validate_thinking_level(thinking_level)
+        if tl_errors:
+            return {"status": "FAILED", "error": tl_errors[0]}
+        ol_errors = ParameterTuningValidator.validate_output_length(output_length, model)
+        if ol_errors:
+            return {"status": "FAILED", "error": ol_errors[0]}
 
         with tempfile.TemporaryDirectory(prefix="chat_sync_") as tmp_dir:
             out_file = Path(tmp_dir) / "chat_transcript.md"
-            lines = [f"# Chat Session Transcript\nSystem Instruction: {system_instruction}\nTemperature: {temperature}\n"]
+            lines = [
+                f"# Chat Session Transcript\nModel: {model}\nThinking Level: {thinking_level}\nOutput Length: {output_length}\nSystem Instruction: {system_instruction}\n"
+            ]
             for turn in turns:
                 lines.append(f"**{turn['role'].capitalize()}**: {turn['content']}\n")
             content = "\n".join(lines)
@@ -1317,7 +1426,9 @@ class WorkflowSimulator:
                 "file_written": out_file.is_file(),
                 "file_size": out_file.stat().st_size,
                 "turns_processed": len(turns),
-                "temperature_configured": temperature,
+                "model_configured": model,
+                "thinking_level_configured": thinking_level,
+                "output_length_configured": output_length,
                 "localization_violations": len(violations),
                 "markdown_transcript": content,
                 "export_ready": True,
@@ -1340,7 +1451,7 @@ class WorkflowSimulator:
             "required": ["sentiment", "score"],
         })
 
-        generated_python = f'''# Generated by Antigravity Google AI Studio Plugin
+        generated_python = f'''# Generated by Antigravity Google AI Studio Plugin v0.2.0
 import os
 from google import genai
 from google.genai import types
@@ -1348,9 +1459,11 @@ from google.genai import types
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
 
 response = client.models.generate_content(
-    model="gemini-2.5-pro",
+    model="gemini-4-hydrogen",
     contents="Analyze user feedback.",
     config=types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(thinking_level="high"),
+        max_output_tokens=65536,
         response_mime_type="application/json",
         response_schema={json.dumps(json_schema)},
     ),
@@ -1389,7 +1502,7 @@ print(response.text)
         with tempfile.TemporaryDirectory(prefix="ui_audit_") as tmp_dir:
             report_file = Path(tmp_dir) / "drift_report.json"
             report_data = {
-                "calibration_date": "2026-11-21",
+                "calibration_date": "2026-11-22",
                 "active_surfaces": len(surfaces),
                 "deprecated_models_pruned": 0,
                 "read_only": True,
@@ -1415,12 +1528,12 @@ CANONICAL_FIXTURES = {
         "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
         "name": "antigravity-aistudio",
         "displayName": "Google AI Studio",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "description": "Cloud offloading and workflow automation for Google AI Studio through Antigravity's built-in browser subagent.",
         "logo": "assets/logo.svg",
-        "keywords": ["aistudio", "gemini", "cloud-offload"],
+        "keywords": ["aistudio", "gemini-4", "cloud-offload"],
         "suggestedPrompts": [
-            "Analyze large multi-file codebase architecture by offloading context to Google AI Studio",
+            "Analyze large multi-file codebase architecture by offloading context to Google AI Studio with Gemini 4 Neon",
             "Construct and evaluate a few-shot structured prompt with JSON response schema in Google AI Studio",
         ],
         "author": {"name": "Antigravity Team"},

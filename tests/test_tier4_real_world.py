@@ -58,13 +58,19 @@ class TestTier4RealWorld(unittest.TestCase):
         # Step 1: Decision Matrix Evaluation
         eval_result = OffloadDecisionEngine.evaluate(task_spec["prompt"], token_count=task_spec["token_count"])
         self.assertEqual(eval_result["route"], "CLOUD_OFFLOAD")
-        self.assertEqual(eval_result["recommended_model"], "Gemini Flash Thinking")
+        self.assertEqual(eval_result["recommended_model"], "Gemini 4 Carbon")
+        self.assertEqual(eval_result["thinking_level"], "high")
+        self.assertTrue(eval_result["paid_gate"])
+        self.assertEqual(eval_result["fallback_model"], "Gemini 4 Neon")
+        self.assertFalse(eval_result["requires_segmentation"])
         self.assertTrue(eval_result["quota_conserved"])
 
         # Step 2: Full Workflow Simulation
         sim_result = WorkflowSimulator.simulate_heavy_reasoning_offload(task_spec)
         self.assertEqual(sim_result["status"], "SUCCESS")
         self.assertEqual(sim_result["route"], "CLOUD_OFFLOAD")
+        self.assertTrue(sim_result["paid_gate"])
+        self.assertEqual(sim_result["fallback_model"], "Gemini 4 Neon")
         self.assertIn("reasoning_prompt_payload.json", sim_result["staged_input"])
         self.assertEqual(sim_result["subagent_call"]["TypeName"], CANONICAL_SUBAGENT_TYPE)
         self.assertEqual(sim_result["subagent_call"]["Model"], CANONICAL_DEFAULT_MODEL)
@@ -127,7 +133,7 @@ class TestTier4RealWorld(unittest.TestCase):
         self.assertEqual(sim_result["autonomy_mode_before"], "auto")
         self.assertEqual(sim_result["autonomy_mode_after"], "paused_for_user")
         self.assertTrue(sim_result["automated_retry_aborted"])
-        self.assertIn("Flash", sim_result["recovery_suggestion"])
+        self.assertIn("Gemini 4 Hydrogen", sim_result["recovery_suggestion"])
 
     def test_scenario_4_multi_turn_chat_and_system_prompt_sync(self):
         """
@@ -135,13 +141,15 @@ class TestTier4RealWorld(unittest.TestCase):
         Exercises: F4 (Delegation), F10 (Staging), F13 (Chat Prompt Skill), F15 (Parameter Tuning).
         Workflow:
         - Configure a multi-turn conversation with specialized system instructions.
-        - Tune model hyperparameters (temperature=0.7).
-        - Execute 3 dialogue turns in AI Studio.
+        - Enforce Gemini 4 Argon Thinking level = High and Output length = 32768.
+        - Execute 4 dialogue turns in AI Studio.
         - Synchronize conversation transcript into structured Markdown for local documentation.
         """
         chat_spec = {
             "system_instruction": "You are a distributed storage reliability engineer analyzing consensus failure modes.",
-            "temperature": 0.7,
+            "model": "gemini-4-argon",
+            "thinking_level": "high",
+            "output_length": 32768,
             "turns": [
                 {"role": "user", "content": "Explain split-brain syndrome in consensus clusters."},
                 {"role": "model", "content": "Split-brain occurs when a network partition creates disjoint majorities..."},
@@ -153,7 +161,8 @@ class TestTier4RealWorld(unittest.TestCase):
         sim_result = WorkflowSimulator.simulate_multi_turn_chat_sync(chat_spec)
         self.assertEqual(sim_result["status"], "SUCCESS")
         self.assertEqual(sim_result["turns_processed"], 4)
-        self.assertEqual(sim_result["temperature_configured"], 0.7)
+        self.assertEqual(sim_result["thinking_level_configured"], "high")
+        self.assertEqual(sim_result["output_length_configured"], 32768)
         self.assertTrue(sim_result["export_ready"])
         self.assertIn("# Chat Session Transcript", sim_result["markdown_transcript"])
         self.assertIn("distributed storage reliability engineer", sim_result["markdown_transcript"])
@@ -199,6 +208,8 @@ class TestTier4RealWorld(unittest.TestCase):
         self.assertIsNotNone(parsed_ast)
         self.assertIn("GEMINI_API_KEY", exported_code)
         self.assertIn("GenerateContentConfig", exported_code)
+        self.assertIn("gemini-4-hydrogen", exported_code)
+        self.assertIn('thinking_level="high"', exported_code)
 
     def test_scenario_6_read_only_ui_sync_audit_verification(self):
         """

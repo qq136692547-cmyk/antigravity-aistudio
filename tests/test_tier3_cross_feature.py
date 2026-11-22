@@ -147,10 +147,10 @@ class TestTier3CrossFeature(unittest.TestCase):
         self.assertTrue(fm.get("disable-model-invocation") is True)
 
     def test_cross_11_parameter_tuning_model_alignment(self):
-        """Cross-11: Parameter ranges align with models referenced in decision matrix."""
-        valid_params = {"temperature": 0.7, "top_p": 0.95, "top_k": 40}
+        """Cross-11: Gemini 4 Run settings bounds align with authorized models and Thinking >= High."""
+        valid_params = {"thinking_level": "high", "output_length": 65536, "media_resolution": "high"}
         self.assertEqual(ParameterTuningValidator.validate_hyperparameters(valid_params), [])
-        invalid_params = {"temperature": 2.5, "top_p": -0.1, "top_k": 0}
+        invalid_params = {"thinking_level": "medium", "output_length": 70000, "media_resolution": "ultra"}
         errors = ParameterTuningValidator.validate_hyperparameters(invalid_params)
         self.assertEqual(len(errors), 3, f"Expected 3 validation errors, got: {errors}")
 
@@ -197,10 +197,11 @@ class TestTier3CrossFeature(unittest.TestCase):
         self.assertEqual(found, len(CANONICAL_SKILLS))
 
     def test_cross_17_prompt_matching_heavy_reasoning_to_offload(self):
-        """Cross-17: Prompt requesting deep reasoning routes to aistudio-offload."""
+        """Cross-17: Prompt requesting deep reasoning routes to Gemini 4 Neon with Thinking High."""
         res = OffloadDecisionEngine.evaluate("Perform complex architectural reasoning for distributed consensus")
         self.assertEqual(res["route"], "CLOUD_OFFLOAD")
-        self.assertEqual(res["recommended_model"], "Gemini Flash Thinking")
+        self.assertEqual(res["recommended_model"], "Gemini 4 Neon")
+        self.assertEqual(res["thinking_level"], "high")
 
     def test_cross_18_prompt_matching_chat_to_chat_skill(self):
         """Cross-18: Prompt requesting multi-turn conversation routes to aistudio-chat-prompt."""
@@ -218,7 +219,7 @@ class TestTier3CrossFeature(unittest.TestCase):
 
     def test_cross_20_prompt_matching_tuning_to_tuning_skill(self):
         """Cross-20: Prompt requesting parameter adjustments routes to aistudio-parameter-tuning."""
-        tuning_prompt = "Tune Gemini model hyperparameters and safety settings in Google AI Studio"
+        tuning_prompt = "Tune Gemini 4 Thinking level, output length, media resolution, and safety settings in Google AI Studio"
         routed = PromptToSkillValidator.route_prompt(tuning_prompt)
         self.assertEqual(routed["skill"], "aistudio-parameter-tuning")
         self.assertIn("tune", routed["matched_keywords"])
@@ -298,6 +299,34 @@ class TestTier3CrossFeature(unittest.TestCase):
             if non_ascii:
                 all_violations.append((str(gitignore_path), 0, f"{len(non_ascii)} non-ASCII bytes", ""))
         self.assertEqual(all_violations, [], f"Found non-English violations: {all_violations}")
+
+    def test_cross_28_no_legacy_model_recommendations_outside_blacklist(self):
+        """Cross-28: No pre-Gemini-4 models or legacy sliders recommended across plugin.json and all 6 skills."""
+        active_files = [
+            PLUGIN_JSON_PATH,
+            SKILLS_DIR / "aistudio-offload" / "SKILL.md",
+            SKILLS_DIR / "aistudio-chat-prompt" / "SKILL.md",
+            SKILLS_DIR / "aistudio-structured-prompt" / "SKILL.md",
+            SKILLS_DIR / "aistudio-parameter-tuning" / "SKILL.md",
+            SKILLS_DIR / "aistudio-code-export" / "SKILL.md",
+            SKILLS_DIR / "aistudio-ui-sync-audit" / "SKILL.md",
+        ]
+        legacy_pat = re.compile(
+            r"(?:palm[- ]?2|chat-bison|text-bison|gemini[- ]?(?:1\.[05]|2\.[05]|3(?:\.\d+)?[- ]?(?:flash|pro)|flash[- ]?thinking)|\b(?:temperature|top[-_ ]?p|top[-_ ]?k|thinking[-_ ]?budget)\b)",
+            re.IGNORECASE,
+        )
+        removal_context_pat = re.compile(
+            r"\b(removed|retired|obsolete|pruned|forbidden|prohibited|replacing|absent|blacklist|deprecated)\b",
+            re.IGNORECASE,
+        )
+        hits = []
+        for fpath in active_files:
+            for lineno, line in enumerate(fpath.read_text(encoding="utf-8").splitlines(), 1):
+                if removal_context_pat.search(line):
+                    continue
+                if legacy_pat.search(line):
+                    hits.append(f"{fpath.name}:{lineno}: {line.strip()}")
+        self.assertEqual(hits, [], f"Found legacy pre-Gemini-4 or slider references in active files: {hits}")
 
 
 if __name__ == "__main__":

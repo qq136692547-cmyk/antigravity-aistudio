@@ -2,23 +2,24 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "antigravity-aistudio",
   "displayName": "Google AI Studio",
-  "version": "0.1.0",
-  "description": "Cloud offloading and workflow automation for Google AI Studio (https://aistudio.google.com/) through Antigravity's built-in browser subagent. Offload reasoning, long-context analysis, prompt engineering, few-shot tuning, parameter optimization, and code export to conserve Antigravity desktop app quota.",
+  "version": "0.2.0",
+  "description": "Cloud offloading and workflow automation for Google AI Studio (https://aistudio.google.com/) through Antigravity's built-in browser subagent. Offload reasoning, 1M-token context analysis, prompt engineering, few-shot tuning, Thinking level (High/XHigh) calibration, and SDK code export to conserve Antigravity desktop app quota.",
   "logo": "assets/logo.svg",
   "keywords": [
     "aistudio",
     "google-ai-studio",
-    "gemini",
+    "gemini-4",
     "cloud-offload",
+    "thinking-high",
     "prompt-engineering",
     "browser-automation",
     "quota-conservation"
   ],
   "suggestedPrompts": [
-    "Analyze a large multi-file codebase architecture by offloading context to Google AI Studio with Gemini Pro",
+    "Analyze a large multi-file codebase architecture by offloading 1M-token context to Google AI Studio with Gemini 4 Neon (High)",
     "Construct and evaluate a few-shot structured prompt with JSON response schema in Google AI Studio",
-    "Tune Gemini model hyperparameters and safety settings in Google AI Studio, then export production Python code",
-    "Audit live Google AI Studio web UI capabilities and model availability with aistudio-ui-sync-audit"
+    "Tune Gemini 4 Thinking level (High), Output length, URL context, and safety settings in Google AI Studio, then export production Python code",
+    "Audit live Google AI Studio web UI capabilities and Gemini 4 model availability with aistudio-ui-sync-audit"
   ],
   "author": {
     "name": "qq136692547-cmyk"

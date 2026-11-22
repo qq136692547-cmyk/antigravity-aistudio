@@ -32,6 +32,7 @@ from conftest import (
     ManifestValidator,
     PromptToSkillRouter,
     OffloadDecisionEngine,
+    ParameterTuningValidator,
     StagingContractValidator,
     CANONICAL_FIXTURES,
 )
@@ -356,6 +357,34 @@ This is a sufficiently long markdown body describing skill operation.
                         if isinstance(a0, ast.Constant) and isinstance(a1, ast.Constant) and a0.value == a1.value:
                             violations.append((py_file.name, node.lineno, f"assertEqual({a0.value}, {a1.value})"))
         self.assertEqual(len(violations), 0, f"Found tautological assertions: {violations}")
+
+    # =========================================================================
+    # Group 6: Gemini 4 Model & Thinking Level Floor Hardening (2 tests)
+    # =========================================================================
+
+    def test_t5_29_thinking_level_floor_rejects_low_medium_and_injections(self):
+        """T5-29: ParameterTuningValidator strictly rejects low/medium and injection strings while accepting high/xhigh."""
+        for forbidden in ["low", "medium", "LOW", "MEDIUM", "minimal", "none", "high;rm -rf", "", None]:
+            errs = ParameterTuningValidator.validate_thinking_level(forbidden)
+            self.assertGreater(len(errs), 0, f"Should reject forbidden thinking_level: {forbidden!r}")
+        for allowed in ["high", "xhigh", "HIGH", "XHIGH"]:
+            errs = ParameterTuningValidator.validate_thinking_level(allowed)
+            self.assertEqual(errs, [], f"Should allow thinking_level={allowed!r}: {errs}")
+
+    def test_t5_30_rejects_all_pre_gemini4_models(self):
+        """T5-30: ParameterTuningValidator rejects all pre-Gemini-4 models and unknown model identifiers."""
+        legacy_models = [
+            "palm-2", "chat-bison-001", "text-bison-001",
+            "gemini-1.0-pro", "gemini-1.0-ultra",
+            "gemini-1.5-pro", "gemini-1.5-flash",
+            "gemini-2.0-flash", "gemini-2.0-pro",
+            "gemini-2.5-pro", "gemini-2.5-flash", "gemini-flash-thinking",
+            "gemini-3-flash-preview", "gemini-3.1-pro-preview", "gemini-3.8-flash",
+            "unknown-model-v9",
+        ]
+        for m in legacy_models:
+            errs = ParameterTuningValidator.validate_model_name(m)
+            self.assertGreater(len(errs), 0, f"Should reject pre-Gemini-4 or unknown model: {m}")
 
 
 if __name__ == "__main__":

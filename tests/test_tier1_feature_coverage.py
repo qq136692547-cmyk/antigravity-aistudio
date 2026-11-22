@@ -84,11 +84,12 @@ class TestTier1FeatureCoverage(unittest.TestCase):
         )
 
     def test_f1_04_manifest_semantic_version(self):
-        """F1-4: Manifest version follows valid semantic versioning (X.Y.Z)."""
+        """F1-4: Manifest version follows valid semantic versioning (X.Y.Z) and is 0.2.0."""
         self.assertTrue(PLUGIN_JSON_PATH.is_file(), f"Target file missing: {PLUGIN_JSON_PATH}")
         manifest_data = json.loads(PLUGIN_JSON_PATH.read_text(encoding="utf-8"))
         version = manifest_data.get("version", "")
         self.assertTrue(ManifestValidator.SEMVER_PATTERN.match(version), f"Invalid semver: {version}")
+        self.assertEqual(version, "0.2.0")
 
     def test_f1_05_manifest_homepage_and_repo_urls(self):
         """F1-5: Manifest homepage and repository fields are valid URLs."""
@@ -305,16 +306,20 @@ class TestTier1FeatureCoverage(unittest.TestCase):
         self.assertFalse(res["quota_conserved"])
 
     def test_f7_03_offload_token_threshold_boundary(self):
-        """F7-3: Decision Engine offloads documents exceeding 4,000 tokens to cloud."""
+        """F7-3: Decision Engine offloads documents exceeding 4,000 tokens to Gemini 4 Hydrogen (High)."""
         res = OffloadDecisionEngine.evaluate("Summarize large repository file", token_count=15000)
         self.assertEqual(res["route"], "CLOUD_OFFLOAD")
-        self.assertEqual(res["recommended_model"], "Gemini 2.5 Flash")
+        self.assertEqual(res["recommended_model"], "Gemini 4 Hydrogen")
+        self.assertEqual(res["thinking_level"], "high")
+        self.assertFalse(res["requires_segmentation"])
 
     def test_f7_04_offload_extreme_context_model_selection(self):
-        """F7-4: Extremely large context (>1M tokens) selects Gemini 2.5 Pro."""
+        """F7-4: Extremely large context (>1M tokens) selects Gemini 4 Neon and flags requires_segmentation."""
         res = OffloadDecisionEngine.evaluate("Analyze entire multi-gigabyte log corpus", token_count=1200000)
         self.assertEqual(res["route"], "CLOUD_OFFLOAD")
-        self.assertEqual(res["recommended_model"], "Gemini 2.5 Pro")
+        self.assertEqual(res["recommended_model"], "Gemini 4 Neon")
+        self.assertEqual(res["thinking_level"], "high")
+        self.assertTrue(res["requires_segmentation"])
 
     def test_f7_05_offload_hybrid_pipeline_lifecycle(self):
         """F7-5: Rules define a 6-stage offload lifecycle (Evaluate, Stage, Dispatch, Execute, Extract, Sync)."""
@@ -501,11 +506,13 @@ class TestTier1FeatureCoverage(unittest.TestCase):
         self.assertTrue("token" in content.lower())
 
     def test_f12_05_matrix_model_recommendations(self):
-        """F12-5: offload-decision-matrix.md references Gemini 2.5 Pro / Flash / Thinking."""
+        """F12-5: offload-decision-matrix.md references all four Gemini 4 models with Thinking >= High."""
         ref_file = SKILLS_DIR / "aistudio-offload" / "references" / "offload-decision-matrix.md"
         self.assertTrue(ref_file.is_file(), f"Target file missing: {ref_file}")
         content = ref_file.read_text(encoding="utf-8")
-        self.assertIn("gemini", content.lower())
+        for m in ["Gemini 4 Hydrogen", "Gemini 4 Argon", "Gemini 4 Neon", "Gemini 4 Carbon"]:
+            self.assertIn(m, content, f"Decision matrix missing Gemini 4 model: {m}")
+        self.assertIn("High", content)
 
     # =========================================================================
     # Feature 13: Skill: aistudio-chat-prompt - 5 Tests
@@ -596,19 +603,23 @@ class TestTier1FeatureCoverage(unittest.TestCase):
         errors = SkillValidator.validate_file(skill_file, expected_name="aistudio-parameter-tuning")
         self.assertEqual(errors, [], f"Skill validation errors in {skill_file}: {errors}")
 
-    def test_f15_02_skill_param_tuning_temperature_range(self):
-        """F15-2: aistudio-parameter-tuning specifies temperature range [0.0, 2.0]."""
+    def test_f15_02_skill_param_tuning_thinking_level_floor(self):
+        """F15-2: aistudio-parameter-tuning enforces Thinking level >= High and bans Low/Medium."""
         skill_file = SKILLS_DIR / "aistudio-parameter-tuning" / "SKILL.md"
         self.assertTrue(skill_file.is_file(), f"Target file missing: {skill_file}")
         content = skill_file.read_text(encoding="utf-8")
-        self.assertIn("temperature", content.lower())
+        self.assertIn("thinking level", content.lower())
+        self.assertIn("high", content.lower())
+        self.assertIn("xhigh", content.lower())
 
-    def test_f15_03_skill_param_tuning_top_p_top_k(self):
-        """F15-3: aistudio-parameter-tuning documents top-p and top-k controls."""
+    def test_f15_03_skill_param_tuning_output_length_and_media_res(self):
+        """F15-3: aistudio-parameter-tuning documents Output length, Media resolution, Stop sequence, and URL context."""
         skill_file = SKILLS_DIR / "aistudio-parameter-tuning" / "SKILL.md"
         self.assertTrue(skill_file.is_file(), f"Target file missing: {skill_file}")
-        content = skill_file.read_text(encoding="utf-8")
-        self.assertTrue("top-p" in content.lower() or "top_p" in content.lower())
+        content = skill_file.read_text(encoding="utf-8").lower()
+        self.assertIn("output length", content)
+        self.assertIn("media resolution", content)
+        self.assertIn("url context", content)
 
     def test_f15_04_skill_param_tuning_safety_filters(self):
         """F15-4: aistudio-parameter-tuning documents safety filter threshold settings."""
