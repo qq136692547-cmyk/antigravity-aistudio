@@ -136,7 +136,7 @@ Install directly into Antigravity with one command:
 agy plugin install https://github.com/qq136692547-cmyk/antigravity-aistudio
 ```
 
-### Local Development (Symlink)
+### Manual / Local Installation
 
 #### On Linux / macOS:
 ```bash
@@ -145,9 +145,14 @@ ln -s "$(pwd)/antigravity-aistudio" ~/.gemini/config/plugins/antigravity-aistudi
 ```
 
 #### On Windows (PowerShell):
+> **Note:** On Windows, Antigravity's plugin scanner skips NTFS Junctions and symlinks. Clone or copy into a real directory under `$HOME\.gemini\config\plugins\`:
+
 ```powershell
-git clone https://github.com/qq136692547-cmyk/antigravity-aistudio.git
-New-Item -ItemType Junction -Path "$HOME\.gemini\config\plugins\antigravity-aistudio" -Target "$PWD\antigravity-aistudio"
+# Clone directly into Antigravity's plugins directory
+git clone https://github.com/qq136692547-cmyk/antigravity-aistudio.git "$HOME\.gemini\config\plugins\antigravity-aistudio"
+
+# Or copy an existing local clone
+Copy-Item -Path "$PWD\antigravity-aistudio" -Destination "$HOME\.gemini\config\plugins\antigravity-aistudio" -Recurse -Force
 ```
 
 ### Manifest Validation
