@@ -243,6 +243,38 @@ Mention unattended cues anywhere in your prompt:
 
 You can switch modes at any point during a conversation by replying `"switch to auto mode"` or `"switch to checkpoint mode"`.
 
+### Advanced: Proactive High-Frequency Auto-Offload (Zero Trigger Phrases)
+
+By default, `antigravity-aistudio` ships in conservative `checkpoint` mode and activates when you reference Google AI Studio or offload-eligible heavy workloads. Power users who want **automatic, zero-prompt-phrase cloud offloading** across every session can add a Cloud-First routing rule to their global Antigravity rules file (`~/.gemini/GEMINI.md`):
+
+#### Preset A: Balanced Smart Offload (Recommended)
+Auto-offload long-context analysis (`>= 4,000` tokens), deep architectural design, live URL research (`URL context`), multimodal asset analysis (`> 100 KB`), and batch synthetic data in `auto` mode, while keeping short Q&A and local coding on desktop:
+
+```markdown
+## Cloud-First Offload Policy (Balanced)
+- Automatically route long-context docs/logs (>= 4,000 tokens), architectural tradeoffs, live web URL research, multimodal attachments, prompt/schema tuning, and synthetic data generation to `antigravity-aistudio` (Gemini 4, `Thinking level = High`) in `auto` mode -- even if I do not mention "AI Studio".
+- Keep local code edits, Git, tests, shell commands, and quick Q&A on desktop.
+- Pause only on `LOGIN_REQUIRED`, `CAPTCHA_REQUIRED`, `Unlock Gemini 4 Carbon` (offer Neon/Hydrogen fallback), or `429` rate limits.
+- Bypass phrase: if I say "answer locally" or "skip AI Studio", reply directly on desktop.
+```
+
+#### Preset B: Maximum Quota Conservation (100% Desktop Quota for Coding)
+Reserve desktop IDE model quota exclusively for file edits, Git, tests, and shell commands, and automatically offload virtually **all** non-mutating thinking, analysis, writing, translation, research, and multimodal tasks -- regardless of token count -- to Google AI Studio Gemini 4 (`Thinking level = High`) in `auto` mode:
+
+```markdown
+## Cloud-First Offload Policy (Maximum Quota Conservation)
+- Before running desktop deep reasoning or local subagents, route EVERY non-local-mutation task (analysis, planning, tradeoff comparison, writing/editing/translation, web/URL research, image/PDF/audio/video inspection, prompt/JSON schema tuning, synthetic data) to `antigravity-aistudio` in `auto` mode -- even without mentioning "AI Studio".
+- Cloud model routing (`Thinking level = High` floor):
+  - General analysis / writing / research / structured data -> `Gemini 4 Hydrogen (High)`
+  - Precision debugging / nuanced tradeoffs -> `Gemini 4 Argon (High)` (explicitly switch from UI default `Medium` to `High`)
+  - Repo-wide architecture / heavy multimodal / 64K long outputs -> `Gemini 4 Neon (High)`
+- Retain on desktop ONLY: file edits, Git operations, running tests/builds/shell commands, local environment inspection, and 1-2 sentence confirmations.
+- Pause only on `LOGIN_REQUIRED`, `CAPTCHA_REQUIRED`, `Unlock Gemini 4 Carbon` (fallback to Neon/Hydrogen High), or `429` rate limits.
+- Bypass phrase: if I say "answer locally" or "skip AI Studio", answer directly on desktop.
+```
+
+> **Tip**: Because global `~/.gemini/GEMINI.md` rules take precedence over individual plugin defaults, adding either preset enables seamless auto-offloading across all workspaces without modifying the plugin's safe default behavior for other users.
+
 ---
 
 ## 6. Modular Skills Suite Overview
