@@ -22,8 +22,9 @@
     "Audit live Google AI Studio web UI capabilities and Gemini 4 model availability with aistudio-ui-sync-audit"
   ],
   "author": {
-    "name": "qq136692547-cmyk"
+    "name": "qq136692547-cmyk",
+    "url": "https://qq136692547-cmyk.github.io/"
   },
-  "homepage": "https://aistudio.google.com",
+  "homepage": "https://qq136692547-cmyk.github.io/",
   "repository": "https://github.com/qq136692547-cmyk/antigravity-aistudio"
 }

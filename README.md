@@ -317,6 +317,20 @@ GRAND TOTAL: 255 / 255 PASSED (100% Pass Rate)
 
 ---
 
+## More Open-Source Projects
+
+Explore the complete developer suite at the **[qq136692547-cmyk Open-Source Hub](https://qq136692547-cmyk.github.io/)** -- featuring all 12 projects across AI & Gemini plugins, local-first tools, AI Search (GEO), and commerce analytics.
+
+| Project | Category | Description |
+| :--- | :--- | :--- |
+| **[magpie-gemini-media-tools](https://github.com/qq136692547-cmyk/magpie-gemini-media-tools)** | AI & Gemini Plugins | MCP tool plugin for Magpie exposing Nano Banana 2.1, Gemini Files API, and 3.8 TTS. |
+| **[QuickNote](https://github.com/qq136692547-cmyk/QuickNote)** | Local-First Tools | Blazing-fast offline-first AI scratchpad for developers with a 100% local SQLite vault. |
+| **[bookmark-health-master](https://github.com/qq136692547-cmyk/bookmark-health-master)** | Local-First Tools | 100% local-first Chrome MV3 extension with Dual-Stage DoH diagnostics and atomic undo. |
+| **[geo-score](https://github.com/qq136692547-cmyk/geo-score)** | AI Search (GEO) | Generative Engine Optimization (GEO) audit tool for measuring AI search visibility. |
+| **[anan-devtools](https://github.com/qq136692547-cmyk/anan-devtools)** | Local-First Tools | Free client-side developer utilities (UUID, Base64, JSON, JWT, hashes, regex, cron, and more). |
+
+---
+
 ## Support & Buy Me a Coffee
 
 Building and maintaining open-source tools often happens deep into the night. If `antigravity-aistudio` helped preserve your precious desktop IDE model quota, streamlined your development workflow, or saved you hours of debugging, a warm cup of coffee is the sweetest fuel for the next late-night coding session!

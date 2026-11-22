@@ -102,13 +102,15 @@ class TestTier3CrossFeature(unittest.TestCase):
         self.assertIn(expected_path, rule_text)
 
     def test_cross_06_canonical_url_consistency_manifest_rules_readme(self):
-        """Cross-6: Canonical URL is identical across manifest, rules, and documentation."""
+        """Cross-6: Manifest homepage is a valid HTTPS URL and canonical AI Studio URL stays consistent across description, rules, and docs."""
         self.assertTrue(PLUGIN_JSON_PATH.is_file(), f"plugin.json missing: {PLUGIN_JSON_PATH}")
         self.assertTrue(AGENTS_RULE_PATH.is_file(), f"rules/AGENTS.md missing: {AGENTS_RULE_PATH}")
         self.assertTrue(README_PATH.is_file(), f"README.md missing: {README_PATH}")
         self.assertEqual(CANONICAL_URL, "https://aistudio.google.com/")
         manifest = json.loads(PLUGIN_JSON_PATH.read_text(encoding="utf-8"))
-        self.assertIn("aistudio.google.com", manifest.get("homepage", ""))
+        homepage = manifest.get("homepage", "")
+        self.assertTrue(homepage.startswith("https://") and len(homepage) > len("https://"), f"Invalid homepage URL: {homepage}")
+        self.assertIn("aistudio.google.com", manifest.get("description", ""))
         self.assertIn(CANONICAL_URL, AGENTS_RULE_PATH.read_text(encoding="utf-8"))
         self.assertIn("aistudio.google.com", README_PATH.read_text(encoding="utf-8"))
 
