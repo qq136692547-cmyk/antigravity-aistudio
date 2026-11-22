@@ -289,6 +289,8 @@ During production deployments with compound requests (e.g., *"Research topic X o
    - **Stage 1 (Cloud Inference First)**: All background research, architectural evaluation, and drafting are strictly decoupled and dispatched to Google AI Studio via `invoke_subagent` (`TypeName: "browser"`). Local `search_web` calls or local deep CoT turns for research are strictly prohibited.
    - **Stage 2 (Local Materialization)**: Once Google AI Studio returns the synthesized output, the desktop agent acts solely as a light file-system receiver, saving artifacts locally with near-zero desktop token consumption.
    - **First-Action Gate**: For compound analysis/planning tasks, the supervisor's **very first tool call MUST be `invoke_subagent` (AI Studio)**. Performing local thinking or searching beforehand is classified as an offload violation.
+   - **Tools State Re-Verification Gate**: In Google AI Studio, switching models or navigating to `?model=...` resets the `Tools` panel, turning `Grounding with Google Search` off by default. The browser subagent must re-inspect and re-toggle Grounding to `ON` before clicking `Run`.
+   - **Visual Scrolling & Anti-Truncation**: Prohibit lazy `slice(0, 8000)` extraction; the subagent must execute real visual page scrolling (`page.mouse.wheel`) down the rendered stream and ingest full markdown/code outputs.
 
 To enforce this in Preset B, add the hardened clause into your `~/.gemini/GEMINI.md`:
 ```markdown
@@ -296,6 +298,8 @@ To enforce this in Preset B, add the hardened clause into your `~/.gemini/GEMINI
   - Prohibit local web searches for domain research; delegate to AI Studio with Google Search Grounding.
   - Never conflate "writing a local plan/artifact later" with performing initial research/reasoning locally.
   - First tool call for analysis/research tasks MUST be `invoke_subagent` (AI Studio).
+  - Explicitly verify and re-enable `Grounding with Google Search` if model switching resets Tools.
+  - Enforce real visual scrolling down the page to ensure complete, untruncated ingestion.
 ```
 
 ---
