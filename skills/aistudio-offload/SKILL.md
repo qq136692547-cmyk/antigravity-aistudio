@@ -30,10 +30,11 @@ Every cloud offload execution follows a strict 6-stage lifecycle:
 2. Determine whether the task requires local shell execution, git mutations, or direct file edits:
    - If local execution is mandatory (e.g., git commits, running pytest, compiling binaries), retain the task on the **Local Machine**.
    - If the task is purely reasoning, drafting, analyzing, or prompt testing, route to **Cloud Offload**.
-3. Evaluate token volume and compute intensity:
-   - Tasks under 4,000 tokens with low compute intensity remain local.
-   - Tasks reaching or exceeding 4,000 tokens, or requiring multi-step reasoning, qualify for cloud offload.
-4. Select an authorized **Gemini 4** cloud model (unified `1M` / `1,000,000` token context; **all pre-Gemini-4 models are strictly forbidden**):
+3. Evaluate token volume, compute intensity, and anti-abuse pacing budget:
+   - Tasks under 4,000 tokens with low compute intensity (short Q&A, single-file tweaks, quick confirmations) remain on **Local Machine**.
+   - Tasks reaching or exceeding 4,000 tokens, or requiring multi-step architectural reasoning, qualify for **Cloud Offload** -- consolidate related questions into **one high-density mega-prompt** rather than firing multiple rapid round-trips.
+   - Respect the **15-30s randomized inter-request pacing cooldown** and **5-8 calls/session soft cap**; if the session cap is exceeded or an `ACCOUNT_VERIFICATION_REQUIRED` gate is active, route gracefully to **Local Machine**.
+4. Select an authorized **Gemini 4** cloud model (unified `1M` / `1,000,000` token context; **all pre-Gemini-4 models are strictly forbidden**; prefer **Hydrogen-first** tiering):
    - **`Gemini 4 Hydrogen`** (`gemini-4-hydrogen`, `1M` in / `64K` out, Free & Paid default): Routine long text/logs (4,000 to 1M tokens), structured JSON, batch synthetic data, daily code & prompt iteration.
    - **`Gemini 4 Argon`** (`gemini-4-argon`, `1M` in / `32K` out, Pro/Paid): Complex logic debugging, fine-grained engineering, knowledge solving. (**Must switch Web UI `Thinking level` from default `Medium` to `High`.**)
    - **`Gemini 4 Neon`** (`gemini-4-neon`, `1M` in / `64K` out, Pro/Paid): Repo-wide architectural design, complex software engineering, deep multimodal/scientific analysis, heavy tasks needing 64K single-turn output.
@@ -71,10 +72,13 @@ The browser subagent operates in a sandboxed environment and cannot read arbitra
 2. Configure the model selector dropdown to the chosen **Gemini 4** model (`Gemini 4 Hydrogen`, `Argon`, `Neon`, or `Carbon`).
    - If `Unlock Gemini 4 Carbon` paywall appears, immediately pause (`PAID_TIER_REQUIRED`) and prompt the user to upgrade or fall back to `Gemini 4 Neon (High)` or `Gemini 4 Hydrogen (High)`.
 3. Enforce the **Thinking Level Floor**: open `Run settings` and explicitly verify/set **`Thinking level = High`** (mandatory for `Argon` and `Carbon`, which default to `Medium`; **`Low` and `Medium` are forbidden**).
-4. Configure Gemini 4 `Run settings` and `Tools` as needed (`Output length` up to `65536` or `32768`, `Media resolution`, `Safety settings`, `Add stop sequence`, `Structured outputs`, `Code execution`, `Function calling`, `Grounding with Google Search`, `URL context`). Note: legacy `Temperature`, `Top-P`, `Top-K`, and `Thinking budget` sliders are removed in Gemini 4.
+4. Configure Gemini 4 `Run settings` and **On-Demand `Tools`** (`Output length` up to `65536` or `32768`, `Media resolution`, `Safety settings`, `Add stop sequence`, `Structured outputs`, `Code execution`, `Function calling`, `Grounding with Google Search`, `URL context`):
+   - **On-Demand Grounding**: Explicitly inspect the `Tools` panel and toggle `Grounding with Google Search` **OFF** (`aria-checked="false"`) for internal code/`git diff` reviews, local architecture specs, copywriting, and JSON schema tests (live Web UI may default it ON) to minimize automated abuse verification triggers. Toggle it **ON** (`aria-checked="true"`) only when live external web research or current documentation verification is required.
+   - **URL Context**: Explicitly toggle `URL context` **ON** whenever the prompt includes explicit `http://` or `https://` URLs.
+   - Note: legacy `Temperature`, `Top-P`, `Top-K`, and `Thinking budget` sliders are removed in Gemini 4.
 5. If staged assets exist, attach them via the file upload interface using the bare staged filename from `browser_sandbox/uploads/`.
 6. Insert prompt text, system instructions, or few-shot examples into their designated input areas.
-7. Trigger model execution (click `Run` or press `Ctrl+Enter`) and monitor generation progress until completion.
+7. Respect the **15-30s randomized pacing cooldown** between consecutive submissions, reuse the active conversation thread for follow-ups instead of spawning `/prompts/new_chat` repeatedly, trigger model execution (`Run` / `Ctrl+Enter`), and monitor generation progress until completion.
 
 ### Stage 5: Output Extraction
 
@@ -94,6 +98,7 @@ The browser subagent operates in a sandboxed environment and cannot read arbitra
 ## Safety and Quota Boundary Protocol
 
 Always enforce hard safety boundaries regardless of autonomy mode:
+- **`ACCOUNT_VERIFICATION_REQUIRED`**: If Google AI Studio displays `"Your account must be verified"` or directs to `https://aistudio.google.com/verify-account`, **immediately abort with zero retries**, never attempt to bypass verification, notify the user to verify manually in the browser, and gracefully fall back to local desktop execution.
 - **`LOGIN_REQUIRED`**: If redirected to `accounts.google.com`, pause and ask the user to complete Google authentication in the browser pane. Resume the same subagent session via `send_message` after sign-in.
 - **`CAPTCHA_REQUIRED`**: Never attempt to bypass anti-bot challenges. Pause and ask the user to solve the challenge.
 - **`PAID_TIER_REQUIRED` (`Unlock Gemini 4 Carbon`)**: If `Gemini 4 Carbon` displays a paid-tier gate, pause immediately and offer fallback to `Gemini 4 Neon (High)` or `Gemini 4 Hydrogen (High)`.

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Tier 3: Pairwise Combinatorial & Cross-Component Consistency Suite (27 tests)
+Tier 3: Pairwise Combinatorial & Cross-Component Consistency Suite (28 tests)
 Validates cross-feature interactions, schema-to-doc consistency, staging path parity,
 prompt-to-skill routing matrices, and invariant contracts across the entire plugin.
-Total tests: 27 tests (Requirement: >= 25 tests).
+Total tests: 28 tests (Requirement: >= 28 tests).
 
 Remediated to strictly eliminate all mock fallback branches and tautological assertions.
 Every test genuinely inspects and validates real repository files and domain validators.
@@ -281,16 +281,25 @@ class TestTier3CrossFeature(unittest.TestCase):
 
         all_violations = []
         extensions = ["*.json", "*.md", "*.svg", "*.py"]
-        for d in [REPO_ROOT] + mandatory_dirs:
+        scan_dirs = [REPO_ROOT / "rules", REPO_ROOT / "assets", REPO_ROOT / "tests", REPO_ROOT / "skills"]
+        if (REPO_ROOT / "scripts").is_dir():
+            scan_dirs.append(REPO_ROOT / "scripts")
+        scanned_paths = set()
+        for ext in extensions:
+            for path in REPO_ROOT.glob(ext):
+                scanned_paths.add(path)
+        for d in scan_dirs:
             for ext in extensions:
-                for path in d.glob(ext):
-                    v = OverseasLocalizationValidator.scan_file(path)
-                    if v:
-                        all_violations.extend([(str(path), line, char, text) for line, char, text in v])
-                    raw_bytes = path.read_bytes()
-                    non_ascii = [b for b in raw_bytes if b > 127]
-                    if non_ascii:
-                        all_violations.append((str(path), 0, f"{len(non_ascii)} non-ASCII bytes", ""))
+                for path in d.rglob(ext):
+                    scanned_paths.add(path)
+        for path in sorted(scanned_paths):
+            v = OverseasLocalizationValidator.scan_file(path)
+            if v:
+                all_violations.extend([(str(path), line, char, text) for line, char, text in v])
+            raw_bytes = path.read_bytes()
+            non_ascii = [b for b in raw_bytes if b > 127]
+            if non_ascii:
+                all_violations.append((str(path), 0, f"{len(non_ascii)} non-ASCII bytes", ""))
         gitignore_path = REPO_ROOT / ".gitignore"
         if gitignore_path.exists():
             v = OverseasLocalizationValidator.scan_file(gitignore_path)

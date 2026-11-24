@@ -361,6 +361,9 @@ class RulesValidator:
         ("safety_login", r"LOGIN_REQUIRED|accounts\.google\.com"),
         ("safety_captcha", r"CAPTCHA"),
         ("safety_quota_429", r"429|ResourceExhausted|quota"),
+        ("safety_account_verification", r"ACCOUNT_VERIFICATION_REQUIRED|aistudio\.google\.com/verify-account"),
+        ("anti_abuse_pacing", r"15-30|cooldown|pacing"),
+        ("on_demand_grounding", r"On-Demand|default OFF|Leave `Grounding with Google Search` \*\*OFF\*\*"),
         ("staging_uploads", r"browser_sandbox/uploads/"),
         ("staging_downloads", r"browser_sandbox/downloads/"),
     ]
@@ -622,9 +625,20 @@ class SafetyBoundariesValidator:
     """Validates safety clauses, CAPTCHA anti-bypass rules, error classification, and UI audit boundaries."""
 
     CAPTCHA_BYPASS_PATTERN = re.compile(
-        r"\b(bypass|solve|manipulate|crack|automate)\b.*\b(captcha|anti-bot|challenge)\b",
+        r"(?:\b(?:bypass(?:ing|ed)?|solv(?:e|ing|ed)|manipulat(?:e|ing|ed)|crack(?:ing|ed)?|automat(?:e|ing|ed))\b.*\b(?:captchas?|anti-bot|challenges?|verify-account|account\s+verification)\b"
+        r"|\b(?:captchas?|anti-bot|challenges?|verify-account|account\s+verification)\b.*\b(?:bypass(?:ing|ed)?|solv(?:e|ing|ed)|manipulat(?:e|ing|ed)|crack(?:ing|ed)?|automat(?:e|ing|ed))\b)",
         re.IGNORECASE,
     )
+    PROHIBITION_GUARD_PATTERN = re.compile(
+        r"\b(?:never|do\s+not|don't|must\s+not|shall\s+not|prohibit(?:ed|s|ing)?|forbid(?:den|s|ding)?|disallow(?:ed|s|ing)?|not\s+attempt\s+to)\b",
+        re.IGNORECASE,
+    )
+    ACCOUNT_VERIFICATION_PATTERN = re.compile(
+        r"(your\s+account\s+must\s+be\s+verified|aistudio\.google\.com/verify-account|gemini-api/docs/verification#verify-account|ACCOUNT_VERIFICATION_REQUIRED)",
+        re.IGNORECASE,
+    )
+    DEFAULT_MIN_COOLDOWN_SECONDS: float = 15.0
+    DEFAULT_MAX_SESSION_CALLS: int = 8
     FORBIDDEN_AUDIT_ACTIONS: Set[str] = {
         "click_delete", "click_save", "click_generate", "click_run",
         "delete", "save", "generate", "run", "edit", "update", "create", "submit"
@@ -636,23 +650,126 @@ class SafetyBoundariesValidator:
         if not rule_text or not str(rule_text).strip():
             return ["Safety clause cannot be empty"]
 
-        if cls.CAPTCHA_BYPASS_PATTERN.search(rule_text):
-            errors.append("Safety violation: Automated CAPTCHA solving or bypassing is strictly prohibited")
+        text = str(rule_text)
+        if cls.CAPTCHA_BYPASS_PATTERN.search(text) and not cls.PROHIBITION_GUARD_PATTERN.search(text):
+            errors.append("Safety violation: Automated CAPTCHA or account verification bypassing is strictly prohibited")
 
         return errors
 
     @classmethod
     def classify_platform_error(cls, error_text: str) -> Dict[str, Any]:
         text = str(error_text)
+        is_account_verification = bool(cls.ACCOUNT_VERIFICATION_PATTERN.search(text))
         is_quota = bool(re.search(r"\b(429|ResourceExhausted|quota)\b", text, re.IGNORECASE))
         is_safety = bool(re.search(r"(HARM_CATEGORY\w*|SAFETY_BLOCKED|safety filter)", text, re.IGNORECASE))
-        is_transient = bool(re.search(r"\b(wait \d+ seconds|try again later|rate limit)\b", text, re.IGNORECASE)) and not bool(re.search(r"\b(daily quota|midnight UTC)\b", text, re.IGNORECASE))
+        is_transient = (
+            not is_account_verification
+            and bool(re.search(r"\b(wait \d+ seconds|try again later|rate limit)\b", text, re.IGNORECASE))
+            and not bool(re.search(r"\b(daily quota|midnight UTC)\b", text, re.IGNORECASE))
+        )
+
+        if is_account_verification:
+            status = "PAUSED_ACCOUNT_VERIFICATION_REQUIRED"
+        elif is_quota or is_safety or is_transient:
+            status = "PAUSED_SAFETY_TRIGGERED"
+        else:
+            status = "CONTINUE"
 
         return {
+            "is_account_verification": is_account_verification,
             "is_quota": is_quota,
             "is_safety": is_safety,
             "is_transient": is_transient,
-            "status": "PAUSED_SAFETY_TRIGGERED" if (is_quota or is_safety) else "CONTINUE",
+            "zero_retry_required": is_account_verification,
+            "fallback_to_local": is_account_verification,
+            "verification_url": "https://aistudio.google.com/verify-account" if is_account_verification else None,
+            "status": status,
+        }
+
+    @classmethod
+    def validate_pacing_policy(
+        cls,
+        cooldown_seconds: Any,
+        session_calls: Any,
+        max_session_calls: int = DEFAULT_MAX_SESSION_CALLS,
+        min_cooldown_seconds: float = DEFAULT_MIN_COOLDOWN_SECONDS,
+    ) -> Dict[str, Any]:
+        """Fail-closed validator for anti-abuse inter-request pacing cooldown and session call cap."""
+        errors: List[str] = []
+
+        valid_min_cd: Optional[float] = None
+        if isinstance(min_cooldown_seconds, bool) or not isinstance(min_cooldown_seconds, (int, float)):
+            errors.append(f"min_cooldown_seconds must be a positive finite number, got {min_cooldown_seconds!r}")
+        else:
+            mcd = float(min_cooldown_seconds)
+            if mcd != mcd or mcd in (float("inf"), float("-inf")) or mcd <= 0:
+                errors.append(f"min_cooldown_seconds must be a positive finite number, got {min_cooldown_seconds!r}")
+            else:
+                valid_min_cd = mcd
+
+        if isinstance(cooldown_seconds, bool) or not isinstance(cooldown_seconds, (int, float)):
+            errors.append("Invalid cooldown_seconds type; must be a finite number")
+        else:
+            cd = float(cooldown_seconds)
+            if cd != cd or cd in (float("inf"), float("-inf")) or cd <= 0:
+                errors.append(f"Cooldown must be a positive finite number, got {cooldown_seconds!r}")
+            elif valid_min_cd is not None and cd < valid_min_cd:
+                errors.append(
+                    f"Cooldown ({cd}s) is below anti-abuse minimum ({valid_min_cd}s)"
+                )
+
+        if isinstance(session_calls, bool) or not isinstance(session_calls, int):
+            errors.append("Invalid session_calls type; must be a non-negative integer")
+        elif session_calls < 0:
+            errors.append(f"session_calls cannot be negative, got {session_calls}")
+        elif not isinstance(max_session_calls, int) or isinstance(max_session_calls, bool) or max_session_calls <= 0:
+            errors.append(f"max_session_calls must be a positive integer, got {max_session_calls!r}")
+        elif session_calls > max_session_calls:
+            errors.append(
+                f"Session calls ({session_calls}) exceed anti-abuse soft cap ({max_session_calls}); route to local fallback"
+            )
+
+        return {
+            "allowed": len(errors) == 0,
+            "fallback_to_local": len(errors) > 0,
+            "errors": errors,
+        }
+
+    EXPLICIT_WEB_RESEARCH_PATTERN = re.compile(
+        r"\b(?:web\s+research|live\s+web|search\s+google|up-to-date|verify\s+online|official\s+docs|release\s+notes|pricing|competitor(?:s)?|external\s+api)\b",
+        re.IGNORECASE,
+    )
+    GENERIC_FRESHNESS_PATTERN = re.compile(
+        r"\b(?:latest|current|news|market\s+trend(?:s)?|market\s+research)\b",
+        re.IGNORECASE,
+    )
+    INTERNAL_ONLY_PATTERN = re.compile(
+        r"\b(?:git\s+diff|code\s+review|refactor(?:ing)?|architecture\s+spec|copywriting|tweet(?:s)?|json\s+schema|unit\s+test(?:s)?|local\s+codebase)\b",
+        re.IGNORECASE,
+    )
+
+    @classmethod
+    def should_enable_search_grounding(cls, task_description: str, has_urls: bool = False) -> Dict[str, Any]:
+        """Enforces On-Demand Grounding: OFF for internal code/diff/spec/copywriting, ON only for live web research."""
+        desc = str(task_description or "")
+        detected_url = bool(has_urls) or bool(re.search(r"https?://\S+", desc, re.IGNORECASE))
+
+        has_explicit_web = bool(cls.EXPLICIT_WEB_RESEARCH_PATTERN.search(desc))
+        has_generic_freshness = bool(cls.GENERIC_FRESHNESS_PATTERN.search(desc))
+        is_internal = bool(cls.INTERNAL_ONLY_PATTERN.search(desc))
+
+        # Explicit live-web markers enable Search Grounding; generic freshness words only enable
+        # Search Grounding when the task is NOT an internal/offline task.
+        enable_search = has_explicit_web or (has_generic_freshness and not is_internal)
+
+        return {
+            "enable_search_grounding": enable_search,
+            "enable_url_context": detected_url,
+            "reason": (
+                "Live web/external factual research requested; explicitly toggle Grounding with Google Search ON"
+                if enable_search
+                else "Internal/offline task; explicitly toggle Grounding with Google Search OFF to minimize anti-abuse risk"
+            ),
         }
 
     @classmethod
@@ -1408,6 +1525,37 @@ class WorkflowSimulator:
         return {"status": "CONTINUE", "boundary_triggered": None}
 
     @classmethod
+    def simulate_account_verification_gate(cls, exec_spec: Dict[str, Any]) -> Dict[str, Any]:
+        """Scenario 8: Detects AI Studio account verification gate, aborts with 0 retries, and routes to local fallback."""
+        cls._verify_rules_contract()
+        autonomy_mode = exec_spec.get("mode", "auto")
+        error_banner = exec_spec.get("error_banner", "")
+        classified = SafetyBoundariesValidator.classify_platform_error(error_banner)
+
+        if classified["is_account_verification"]:
+            return {
+                "status": "PAUSED_ACCOUNT_VERIFICATION_REQUIRED",
+                "boundary_triggered": "ACCOUNT_VERIFICATION_REQUIRED",
+                "autonomy_mode_before": autonomy_mode,
+                "autonomy_mode_after": "paused_for_user",
+                "automated_retry_aborted": True,
+                "retry_count": 0,
+                "verification_url": "https://aistudio.google.com/verify-account",
+                "fallback_route": "LOCAL_MACHINE",
+                "recovery_suggestion": (
+                    "Complete manual verification at https://aistudio.google.com/verify-account; "
+                    "fall back gracefully to local desktop execution until verified."
+                ),
+            }
+
+        return {
+            "status": "CONTINUE",
+            "boundary_triggered": None,
+            "retry_count": 0,
+            "fallback_route": None,
+        }
+
+    @classmethod
     def simulate_paid_gate_detection(cls, exec_spec: Dict[str, Any]) -> Dict[str, Any]:
         """Detects Unlock Gemini 4 Carbon paid gate and offers Neon/Hydrogen (High) fallback."""
         cls._verify_rules_contract()
@@ -1488,7 +1636,7 @@ class WorkflowSimulator:
             "required": ["sentiment", "score"],
         })
 
-        generated_python = f'''# Generated by Antigravity Google AI Studio Plugin v0.2.0
+        generated_python = f'''# Generated by Antigravity Google AI Studio Plugin v0.2.1
 import os
 from google import genai
 from google.genai import types
@@ -1565,7 +1713,7 @@ CANONICAL_FIXTURES = {
         "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
         "name": "antigravity-aistudio",
         "displayName": "Google AI Studio",
-        "version": "0.2.0",
+        "version": "0.2.1",
         "description": "Cloud offloading and workflow automation for Google AI Studio through Antigravity's built-in browser subagent.",
         "logo": "assets/logo.svg",
         "keywords": ["aistudio", "gemini-4", "cloud-offload"],

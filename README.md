@@ -6,15 +6,15 @@
 
 <p align="center">
   <a href="https://github.com/qq136692547-cmyk/antigravity-aistudio/stargazers"><img src="https://img.shields.io/github/stars/qq136692547-cmyk/antigravity-aistudio?style=for-the-badge&logo=github&color=FFD700" alt="GitHub Stars"></a>
-  <a href="plugin.json"><img src="https://img.shields.io/badge/Antigravity-Plugin%20v0.2.0-9B72CB?style=for-the-badge&logo=google" alt="Antigravity Plugin"></a>
+  <a href="plugin.json"><img src="https://img.shields.io/badge/Antigravity-Plugin%20v0.2.1-9B72CB?style=for-the-badge&logo=google" alt="Antigravity Plugin"></a>
   <a href="https://aistudio.google.com"><img src="https://img.shields.io/badge/Frontier%20Models-Gemini%204%20Hydrogen%20%7C%20Argon%20%7C%20Neon%20%7C%20Carbon-4285F4?style=for-the-badge&logo=googlegemini" alt="Gemini 4 Models"></a>
   <a href="https://aistudio.google.com"><img src="https://img.shields.io/badge/Context%20Window-1%2C000%2C000%20Tokens-00C9A7?style=for-the-badge" alt="Context Window"></a>
   <a href="https://aistudio.google.com"><img src="https://img.shields.io/badge/Thinking%20Floor-High%20%2F%20XHigh-FF6B6B?style=for-the-badge" alt="Thinking Floor"></a>
-  <a href="tests/run_tests.py"><img src="https://img.shields.io/badge/E2E%20Tests-255%2F255%20Passed-success?style=for-the-badge&logo=checkmarx" alt="Tests"></a>
+  <a href="tests/run_tests.py"><img src="https://img.shields.io/badge/E2E%20Tests-266%2F266%20Passed-success?style=for-the-badge&logo=checkmarx" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge" alt="License"></a>
 </p>
 
-> **Supercharge Antigravity with Google AI Studio (v0.2.0 -- Pure Gemini 4 Architecture):** Offload heavy reasoning, 1M-token document analysis, few-shot prompt engineering, URL context synthesis, and SDK code exports to **Gemini 4** cloud models (`Thinking level >= High`) through Antigravity's built-in browser subagent -- **preserving 100% of your local IDE model quota.**
+> **Supercharge Antigravity with Google AI Studio (v0.2.1 -- Pure Gemini 4 + Anti-Abuse Hardened Architecture):** Offload heavy reasoning, 1M-token document analysis, few-shot prompt engineering, URL context synthesis, and SDK code exports to **Gemini 4** cloud models (`Thinking level >= High`) with low-frequency high-density pacing, on-demand Search Grounding, and an `ACCOUNT_VERIFICATION_REQUIRED` zero-retry circuit breaker -- **preserving your local IDE model quota safely.**
 
 ---
 
@@ -24,7 +24,7 @@
 When developing inside AI-first IDEs like Antigravity, desktop agent interactions consume metered, rate-limited local model quota (e.g., Gemini Neon, Gemini Hydrogen, Gemini Argon, Claude Opus). Performing long-context analysis (such as reading 500k-token repository documentation or massive log files), iterative few-shot prompt tuning, or deep multi-turn architectural brainstorming through the desktop agent quickly exhausts valuable daily quota allowances.
 
 ### The Solution: Cloud Agent Offloading (Gemini 4 + Thinking >= High)
-`antigravity-aistudio` v0.2.0 establishes an automated cloud offloading bridge to **Google AI Studio** ([aistudio.google.com](https://aistudio.google.com)):
+`antigravity-aistudio` v0.2.1 establishes an automated, anti-abuse hardened cloud offloading bridge to **Google AI Studio** ([aistudio.google.com](https://aistudio.google.com)):
 - **Pure Gemini 4 Cloud Roster**: Direct web access to `Gemini 4 Hydrogen`, `Gemini 4 Argon`, `Gemini 4 Neon`, and `Gemini 4 Carbon` -- all unified with a `1,000,000` (`1M`) token context window. All pre-Gemini-4 models (`PaLM 2`, `Gemini 1.x`, `2.x`, `3.x`) are retired and blocked.
 - **Hard Thinking Level Floor (`>= High`)**: Every cloud offload enforces `Thinking level = High` in the Web UI (`"high"` or `"xhigh"` in SDK/API `thinking_level`). `Low` and `Medium` thinking levels are strictly prohibited, including explicit Medium-to-High overrides for `Argon` and `Carbon`.
 - **Desktop Quota Conservation**: Heavy reasoning, high-token reading, and exploratory iteration execute entirely in the cloud at zero desktop quota cost.
@@ -33,7 +33,7 @@ When developing inside AI-first IDEs like Antigravity, desktop agent interaction
 
 ### Value Comparison
 
-| Dimension | Standard Desktop Execution | Cloud Offload with `antigravity-aistudio` v0.2.0 |
+| Dimension | Standard Desktop Execution | Cloud Offload with `antigravity-aistudio` v0.2.1 |
 | :--- | :--- | :--- |
 | **Cloud Models** | Desktop metered allowances | **Pure Gemini 4** (`Hydrogen`, `Argon`, `Neon`, `Carbon`) |
 | **Context Window** | Limited by desktop model context | **Unified 1,000,000 Tokens** (`1M` in / up to `64K` out) |
@@ -55,7 +55,7 @@ When developing inside AI-first IDEs like Antigravity, desktop agent interaction
 
 ```
 antigravity-aistudio/
-|-- plugin.json                          # Plugin manifest v0.2.0 conforming to agent-plugins schema
+|-- plugin.json                          # Plugin manifest v0.2.1 conforming to agent-plugins schema
 |-- README.md                            # Comprehensive user & developer documentation
 |-- assets/
 |   |-- logo.svg                         # Official plugin vector logo
@@ -116,7 +116,7 @@ antigravity-aistudio/
 |      - Gemini 4 Neon     (1M in / 64K out, Pro/Paid, repo-scale & multimodal)     |
 |      - Gemini 4 Carbon   (1M in / 32K out, Paid gated, switch Medium -> High)     |
 |      - Thinking level >= High | Output length | Media resolution | URL context    |
-|      - Structured outputs | Search Grounding (default ON) | Code execution        |
+|      - Structured outputs | On-Demand Search Grounding | Code execution             |
 +-------------------------------------------------------|---------------------------+
                                                         |
                                                         v (Extracted Outputs)
@@ -243,33 +243,35 @@ Mention unattended cues anywhere in your prompt:
 
 You can switch modes at any point during a conversation by replying `"switch to auto mode"` or `"switch to checkpoint mode"`.
 
-### Advanced: Proactive High-Frequency Auto-Offload (Zero Trigger Phrases)
+### Advanced: Low-Frequency High-Density Auto-Offload (Anti-Abuse Recommended)
 
-By default, `antigravity-aistudio` ships in conservative `checkpoint` mode and activates when you reference Google AI Studio or offload-eligible heavy workloads. Power users who want **automatic, zero-prompt-phrase cloud offloading** across every session can add a Cloud-First routing rule to their global Antigravity rules file (`~/.gemini/GEMINI.md`):
+By default, `antigravity-aistudio` ships in conservative `checkpoint` mode and activates when you reference Google AI Studio or offload-eligible heavy workloads. Power users who want **automatic, zero-prompt-phrase cloud offloading** without triggering Google AI Studio's account-verification gate (`verify-account`) can add a paced Cloud-First routing rule to their global Antigravity rules file (`~/.gemini/GEMINI.md`):
 
-#### Preset A: Balanced Smart Offload (Recommended)
-Auto-offload long-context analysis (`>= 4,000` tokens), deep architectural design, live URL research (`URL context`), multimodal asset analysis (`> 100 KB`), and batch synthetic data in `auto` mode, while keeping short Q&A and local coding on desktop:
+#### Preset A: Balanced High-Density Offload (Recommended -- Anti-Abuse Safe)
+Auto-offload heavy long-context analysis (`>= 4,000` tokens), deep architectural design, live URL research (`URL context`), multimodal asset analysis (`> 100 KB`), and batch synthetic data in `auto` mode using consolidated mega-prompts, while keeping short Q&A, small edits, and local coding on desktop:
 
 ```markdown
-## Cloud-First Offload Policy (Balanced)
-- Automatically route long-context docs/logs (>= 4,000 tokens), architectural tradeoffs, live web URL research, multimodal attachments, prompt/schema tuning, and synthetic data generation to `antigravity-aistudio` (Gemini 4, `Thinking level = High`) in `auto` mode -- even if I do not mention "AI Studio".
-- Keep local code edits, Git, tests, shell commands, and quick Q&A on desktop.
-- Pause only on `LOGIN_REQUIRED`, `CAPTCHA_REQUIRED`, `Unlock Gemini 4 Carbon` (offer Neon/Hydrogen fallback), or `429` rate limits.
+## Cloud-First Offload Policy (Balanced & Anti-Abuse Safe)
+- Automatically route heavy long-context docs/logs (>= 4,000 tokens), architectural tradeoffs, live web URL research, multimodal attachments, prompt/schema tuning, and synthetic data generation to `antigravity-aistudio` (Gemini 4, `Thinking level = High`) in `auto` mode -- consolidated into 1 mega-prompt per task.
+- Keep local code edits, Git, tests, shell commands, short Q&A, and minor reviews on desktop.
+- Anti-abuse pacing: enforce 15-30s randomized cooldown between cloud calls, soft cap of 5-8 calls/session, Hydrogen-first tiering, and keep `Grounding with Google Search` OFF for internal code/diff reviews (enable ON only for live web research).
+- Pause with zero retries on `ACCOUNT_VERIFICATION_REQUIRED` (`aistudio.google.com/verify-account`) and fall back gracefully to desktop; also pause on `LOGIN_REQUIRED`, `CAPTCHA_REQUIRED`, `Unlock Gemini 4 Carbon`, or `429` rate limits.
 - Bypass phrase: if I say "answer locally" or "skip AI Studio", reply directly on desktop.
 ```
 
-#### Preset B: Maximum Quota Conservation (100% Desktop Quota for Coding)
-Reserve desktop IDE model quota exclusively for file edits, Git, tests, and shell commands, and automatically offload virtually **all** non-mutating thinking, analysis, writing, translation, research, and multimodal tasks -- regardless of token count -- to Google AI Studio Gemini 4 (`Thinking level = High`) in `auto` mode:
+#### Preset B: Maximum Quota Conservation (Paced Batch Offload + Local Fallback)
+Reserve desktop IDE model quota primarily for file edits, Git, tests, shell commands, and quick replies, and offload heavy non-mutating thinking, analysis, writing, research, and multimodal tasks in **consolidated mega-prompts** to Google AI Studio Gemini 4 (`Thinking level = High`) in `auto` mode:
 
 ```markdown
-## Cloud-First Offload Policy (Maximum Quota Conservation)
-- Before running desktop deep reasoning or local subagents, route EVERY non-local-mutation task (analysis, planning, tradeoff comparison, writing/editing/translation, web/URL research, image/PDF/audio/video inspection, prompt/JSON schema tuning, synthetic data) to `antigravity-aistudio` in `auto` mode -- even without mentioning "AI Studio".
-- Cloud model routing (`Thinking level = High` floor):
-  - General analysis / writing / research / structured data -> `Gemini 4 Hydrogen (High)`
+## Cloud-First Offload Policy (Paced Maximum Conservation)
+- Consolidate heavy non-local-mutation tasks (multi-file analysis, architecture planning, tradeoff comparison, long-form writing, web/URL research, multimodal inspection, prompt/JSON schema tuning, synthetic data) into a single high-density prompt routed to `antigravity-aistudio` in `auto` mode.
+- Cloud model routing (`Thinking level = High` floor, Hydrogen-first):
+  - Routine analysis / writing / research / structured data -> `Gemini 4 Hydrogen (High)`
   - Precision debugging / nuanced tradeoffs -> `Gemini 4 Argon (High)` (explicitly switch from UI default `Medium` to `High`)
-  - Repo-wide architecture / heavy multimodal / 64K long outputs -> `Gemini 4 Neon (High)`
-- Retain on desktop ONLY: file edits, Git operations, running tests/builds/shell commands, local environment inspection, and 1-2 sentence confirmations.
-- Pause only on `LOGIN_REQUIRED`, `CAPTCHA_REQUIRED`, `Unlock Gemini 4 Carbon` (fallback to Neon/Hydrogen High), or `429` rate limits.
+  - Repo-wide architecture / heavy multimodal / 64K long outputs / final audits -> `Gemini 4 Neon (High)`
+- Anti-abuse guardrails: reuse the active chat tab, enforce 15-30s randomized cooldown, cap at 5-8 calls/session, and keep `Grounding with Google Search` OFF unless live external web lookup is required.
+- Retain on desktop: file edits, Git operations, running tests/builds/shell commands, trivial Q&A (< 4,000 tokens), and automatic fallback whenever `ACCOUNT_VERIFICATION_REQUIRED` or `429` triggers.
+- Pause with zero retries on `ACCOUNT_VERIFICATION_REQUIRED` (`aistudio.google.com/verify-account`), `LOGIN_REQUIRED`, `CAPTCHA_REQUIRED`, `Unlock Gemini 4 Carbon` (fallback to Neon/Hydrogen High), or `429` rate limits.
 - Bypass phrase: if I say "answer locally" or "skip AI Studio", answer directly on desktop.
 ```
 
@@ -289,16 +291,18 @@ During production deployments with compound requests (e.g., *"Research topic X o
    - **Stage 1 (Cloud Inference First)**: All background research, architectural evaluation, and drafting are strictly decoupled and dispatched to Google AI Studio via `invoke_subagent` (`TypeName: "browser"`). Local `search_web` calls or local deep CoT turns for research are strictly prohibited.
    - **Stage 2 (Local Materialization)**: Once Google AI Studio returns the synthesized output, the desktop agent acts solely as a light file-system receiver, saving artifacts locally with near-zero desktop token consumption.
    - **First-Action Gate**: For compound analysis/planning tasks, the supervisor's **very first tool call MUST be `invoke_subagent` (AI Studio)**. Performing local thinking or searching beforehand is classified as an offload violation.
-   - **Tools State Re-Verification Gate**: In Google AI Studio, switching models or navigating to `?model=...` resets the `Tools` panel, turning `Grounding with Google Search` off by default. The browser subagent must re-inspect and re-toggle Grounding to `ON` before clicking `Run`.
+   - **On-Demand Tools State Re-Verification Gate**: Because live Gemini 4 Web UI may initialize `Grounding with Google Search` to `ON`, explicitly inspect `Tools` and toggle Grounding **OFF** (`aria-checked="false"`) for internal code/diff reviews to reduce anti-abuse verification risk; when live web research IS required, re-inspect and toggle Grounding **ON** (`aria-checked="true"`) after any model switch or reload. Toggle `URL context` **ON** whenever explicit URLs are included.
+   - **Anti-Abuse Pacing & Zero-Retry Verification Guard**: Enforce a 15-30s randomized cooldown and 5-8 calls/session cap; if `aistudio.google.com/verify-account` triggers, halt immediately with 0 retries and fall back to desktop.
    - **Visual Scrolling & Anti-Truncation**: Prohibit lazy `slice(0, 8000)` extraction; the subagent must execute real visual page scrolling (`page.mouse.wheel`) down the rendered stream and ingest full markdown/code outputs.
 
 To enforce this in Preset B, add the hardened clause into your `~/.gemini/GEMINI.md`:
 ```markdown
-- **Anti-Short-Circuiting Guardrails**:
-  - Prohibit local web searches for domain research; delegate to AI Studio with Google Search Grounding.
-  - Never conflate "writing a local plan/artifact later" with performing initial research/reasoning locally.
-  - First tool call for analysis/research tasks MUST be `invoke_subagent` (AI Studio).
-  - Explicitly verify and re-enable `Grounding with Google Search` if model switching resets Tools.
+- **Anti-Short-Circuiting & Anti-Abuse Guardrails**:
+  - Consolidate heavy research/architecture into 1 high-density mega-prompt; keep trivial Q&A local.
+  - Never conflate "writing a local plan/artifact later" with performing heavy initial research/reasoning locally.
+  - First tool call for heavy analysis/research tasks MUST be `invoke_subagent` (AI Studio) when cloud quota is healthy.
+  - Keep `Grounding with Google Search` OFF for internal code/diff reviews; explicitly verify and enable it ON only for live web research.
+  - Enforce 15-30s randomized pacing cooldown, 5-8 calls/session soft cap, and zero-retry local fallback on `ACCOUNT_VERIFICATION_REQUIRED`.
   - Enforce real visual scrolling down the page to ensure complete, untruncated ingestion.
 ```
 
@@ -335,6 +339,8 @@ Antigravity's `browser` subagent runs inside a sandboxed environment with strict
 ## 8. Security & Boundary Handling
 
 The plugin enforces strict safety stops and never compromises security:
+- **Account Verification Gate (`ACCOUNT_VERIFICATION_REQUIRED`)**: Detects `"Your account must be verified"` / `https://aistudio.google.com/verify-account`, immediately aborts with **0 automated retries**, hands the verification link to the user, and falls back gracefully to local desktop execution.
+- **Anti-Abuse Velocity Pacing & On-Demand Grounding**: Enforces 15-30s randomized inter-request cooldowns, 5-8 calls/session soft caps, thread reuse, Hydrogen-first tiering, and keeps `Grounding with Google Search` OFF for internal code/diff reviews.
 - **Fast-Path Authentication**: Detects active signed-in sessions via avatar, recent prompts, and RPC signals without reading forbidden cookie stores.
 - **Google Sign-In Pause (`LOGIN_REQUIRED`)**: The agent never attempts to automate password entry or credentials. If logged out, it pauses and invites the user to sign in manually.
 - **CAPTCHA & Bot Detection (`CAPTCHA_REQUIRED`)**: Never attempts to bypass verification challenges; immediately hands control to the user.
@@ -358,13 +364,13 @@ python tests/run_tests.py
 ================================================================================
   ANTIGRAVITY-AISTUDIO 5-TIER E2E TEST SUITE RUNNER
 ================================================================================
-Executing Tier 1 (Feature Coverage)......... PASS (95/95 passed)
-Executing Tier 2 (Boundary & Corner)........ PASS (96/96 passed)
+Executing Tier 1 (Feature Coverage)......... PASS (98/98 passed)
+Executing Tier 2 (Boundary & Corner)........ PASS (99/99 passed)
 Executing Tier 3 (Cross-Feature & Pairwise). PASS (28/28 passed)
-Executing Tier 4 (Real-World Scenarios)..... PASS (6/6 passed)
-Executing Tier 5 (Adversarial Hardening).... PASS (30/30 passed)
+Executing Tier 4 (Real-World Scenarios)..... PASS (8/8 passed)
+Executing Tier 5 (Adversarial Hardening).... PASS (33/33 passed)
 --------------------------------------------------------------------------------
-GRAND TOTAL: 255 / 255 PASSED (100% Pass Rate)
+GRAND TOTAL: 266 / 266 PASSED (100% Pass Rate)
 ================================================================================
 ```
 

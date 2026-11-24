@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 E2E Test Suite Runner for antigravity-aistudio
-Executes 4-tier test suite using standard Python unittest and reports structured breakdown.
+Executes 5-tier test suite using standard Python unittest and reports structured breakdown.
 Hardened with pre-flight repository sanity gates, strict threshold gates, and
 whole-repository falsification resilience probe (--verify-falsification).
 Zero external dependencies.
@@ -32,13 +32,13 @@ from test_tier4_real_world import TestTier4RealWorld
 from test_tier5_adversarial_hardening import TestTier5AdversarialHardening
 
 TIER_REQUIREMENTS = {
-    "Tier 1 (Feature Coverage)": 95,
-    "Tier 2 (Boundary & Corner)": 95,
-    "Tier 3 (Cross-Feature & Pairwise)": 25,
-    "Tier 4 (Real-World Scenarios)": 6,
-    "Tier 5 (Adversarial Hardening)": 28,
+    "Tier 1 (Feature Coverage)": 98,
+    "Tier 2 (Boundary & Corner)": 99,
+    "Tier 3 (Cross-Feature & Pairwise)": 28,
+    "Tier 4 (Real-World Scenarios)": 8,
+    "Tier 5 (Adversarial Hardening)": 33,
 }
-MIN_TOTAL_TESTS = 248
+MIN_TOTAL_TESTS = 266
 
 MANDATORY_REPO_ARTIFACTS = [
     ("plugin.json", REPO_ROOT / "plugin.json", "file"),

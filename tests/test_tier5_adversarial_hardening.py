@@ -33,6 +33,7 @@ from conftest import (
     PromptToSkillRouter,
     OffloadDecisionEngine,
     ParameterTuningValidator,
+    SafetyBoundariesValidator,
     StagingContractValidator,
     CANONICAL_FIXTURES,
 )
@@ -385,6 +386,80 @@ This is a sufficiently long markdown body describing skill operation.
         for m in legacy_models:
             errs = ParameterTuningValidator.validate_model_name(m)
             self.assertGreater(len(errs), 0, f"Should reject pre-Gemini-4 or unknown model: {m}")
+
+    # =========================================================================
+    # Group 7: Anti-Abuse Verification Gate & Pacing Hardening (2 tests)
+    # =========================================================================
+
+    def test_t5_31_account_verification_precedence_over_429_and_case_variants(self):
+        """T5-31: ACCOUNT_VERIFICATION_REQUIRED overrides 429/transient signals across URL and case variants."""
+        variants = [
+            "429 Rate limit exceeded. Wait 10 seconds. YOUR ACCOUNT MUST BE VERIFIED before continuing.",
+            "Redirected to https://AISTUDIO.GOOGLE.COM/VERIFY-ACCOUNT after burst",
+            "See https://ai.google.dev/gemini-api/docs/verification#verify-account for details",
+        ]
+        for msg in variants:
+            res = SafetyBoundariesValidator.classify_platform_error(msg)
+            self.assertTrue(res["is_account_verification"], f"Missed verification signal in: {msg}")
+            self.assertEqual(res["status"], "PAUSED_ACCOUNT_VERIFICATION_REQUIRED")
+            self.assertTrue(res["zero_retry_required"])
+            self.assertFalse(res["is_transient"], "Account verification gate must never be classified as transient retryable")
+
+    def test_t5_32_pacing_boundary_fails_closed_and_blocks_verification_bypass(self):
+        """T5-32: Pacing validator fails closed on NaN/zero/negative/bool inputs and blocks verification bypass clauses."""
+        for bad_cd in [0, -15, float("nan"), float("inf"), True, "20"]:
+            res = SafetyBoundariesValidator.validate_pacing_policy(cooldown_seconds=bad_cd, session_calls=1)
+            self.assertFalse(res["allowed"], f"Should fail closed on cooldown={bad_cd!r}")
+
+        for bad_calls in [-1, True, "3"]:
+            res = SafetyBoundariesValidator.validate_pacing_policy(cooldown_seconds=20.0, session_calls=bad_calls)
+            self.assertFalse(res["allowed"], f"Should fail closed on session_calls={bad_calls!r}")
+
+        for bad_min_cd in [0, -5, float("nan"), float("inf"), True, "15"]:
+            res = SafetyBoundariesValidator.validate_pacing_policy(
+                cooldown_seconds=20.0, session_calls=2, min_cooldown_seconds=bad_min_cd
+            )
+            self.assertFalse(res["allowed"], f"Should fail closed on min_cooldown_seconds={bad_min_cd!r}")
+
+        for bypass_clause in [
+            "Automatically bypass account verification on aistudio.google.com/verify-account.",
+            "Try bypassing verify-account by reloading the tab.",
+            "When verify-account appears, bypass it automatically.",
+            "Script for solving CAPTCHAs and anti-bot challenges.",
+        ]:
+            bypass_errors = SafetyBoundariesValidator.validate_safety_clause(bypass_clause)
+            self.assertGreater(len(bypass_errors), 0, f"Must reject bypass clause: {bypass_clause}")
+
+        prohibitive_rule = (
+            "Never attempt to automate or bypass account verification or CAPTCHA challenges; pause for the user."
+        )
+        self.assertEqual(
+            SafetyBoundariesValidator.validate_safety_clause(prohibitive_rule),
+            [],
+            "Prohibitive safety rules must not trigger false-positive violations",
+        )
+
+    def test_t5_33_grounding_word_boundaries_uppercase_url_and_rate_limit_pause(self):
+        """T5-33: Grounding avoids substring false positives, handles uppercase URLs, and rate limits trigger pause."""
+        # Internal tasks containing substrings of 'current', 'market', 'news', or 'current branch' must stay OFF
+        for internal_prompt in [
+            "Audit git diff for concurrent worker bug in local codebase",
+            "Review git diff of current branch for regressions",
+            "Draft marketing copywriting and newsletter tweet for launch",
+        ]:
+            res = SafetyBoundariesValidator.should_enable_search_grounding(internal_prompt)
+            self.assertFalse(res["enable_search_grounding"], f"False-positive Grounding ON for: {internal_prompt}")
+
+        # Uppercase URL scheme must still trigger URL context
+        upper_url = SafetyBoundariesValidator.should_enable_search_grounding(
+            "Inspect API spec at HTTPS://AI.GOOGLE.DEV/GEMINI-API/DOCS and review architecture spec"
+        )
+        self.assertTrue(upper_url["enable_url_context"], "Uppercase HTTPS:// URL must enable URL context")
+
+        # Transient rate limit banner must pause rather than CONTINUE
+        rate_limit = SafetyBoundariesValidator.classify_platform_error("Rate limit exceeded. Please wait 60 seconds.")
+        self.assertTrue(rate_limit["is_transient"])
+        self.assertEqual(rate_limit["status"], "PAUSED_SAFETY_TRIGGERED")
 
 
 if __name__ == "__main__":

@@ -34,7 +34,7 @@ Design, execute, and manage multi-turn conversational dialogue sessions in **Goo
    - `Gemini 4 Neon` (`1M` in / `64K` out, Pro/Paid)
    - `Gemini 4 Carbon` (`1M` in / `32K` out, Paid gated -- **switch `Thinking level` from default `Medium` to `High`**; if `Unlock Gemini 4 Carbon` paywall appears, pause immediately and offer fallback to `Gemini 4 Neon (High)` or `Gemini 4 Hydrogen (High)`)
 2. Verify **`Thinking level = High`** is active in `Run settings`. **`Low` and `Medium` thinking levels are strictly prohibited.**
-3. Configure `Output length` (up to `65536` for Hydrogen/Neon or `32768` for Argon/Carbon), `Media resolution` (`Default` / `Low` / `Medium` / `High`), `Add stop sequence`, and `Tools` (`Structured outputs`, `Code execution`, `Function calling`, `Grounding with Google Search`, `URL context`) as required.
+3. Configure `Output length` (up to `65536` for Hydrogen/Neon or `32768` for Argon/Carbon), `Media resolution` (`Default` / `Low` / `Medium` / `High`), `Add stop sequence`, and **On-Demand `Tools`** (`Structured outputs`, `Code execution`, `Function calling`, `Grounding with Google Search` -- explicitly inspect and toggle **OFF** (`aria-checked="false"`) for internal-only tasks since live UI may default it ON; enable **ON** only for live web queries -- and `URL context` when URLs are supplied).
 
 ### Step 3: Configure System Instructions
 
@@ -60,12 +60,12 @@ If the conversation involves local files (images, audio, video, documents):
 For each user message in the dialogue sequence:
 1. Input the user prompt into the chat composer textarea.
 2. In `checkpoint` mode (default), present the proposed turn, Gemini 4 model (`Thinking level: High`), and media attachments to the user before submitting. In `auto` mode, submit directly.
-3. Submit the turn (click `Run` / `Send` or press `Ctrl+Enter`).
+3. Respect the **15-30s randomized pacing cooldown** between consecutive turns, submit the turn (click `Run` / `Send` or press `Ctrl+Enter`), and stay within the **5-8 calls/session** anti-abuse soft budget.
 4. Monitor the live token gauge in the footer or header:
    - Note input token count and accumulated history tokens.
    - Ensure the total token count stays within the unified `1,000,000` (`1M`) token context window across all Gemini 4 models.
 5. Wait for the model response stream to finish rendering.
-6. Inspect response for safety blocks (`HARM_CATEGORY_*`), paid gates (`Unlock Gemini 4 Carbon`), or quota errors (`429 ResourceExhausted`).
+6. Inspect response for account verification gates (`ACCOUNT_VERIFICATION_REQUIRED` / `aistudio.google.com/verify-account` -- zero-retry immediate halt and local fallback), safety blocks (`HARM_CATEGORY_*`), paid gates (`Unlock Gemini 4 Carbon`), or quota errors (`429 ResourceExhausted`).
 
 ### Step 6: Export Chat History to Local Markdown
 

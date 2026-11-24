@@ -265,6 +265,30 @@ class TestTier4RealWorld(unittest.TestCase):
         shell_result = OffloadDecisionEngine.evaluate(shell_cmd, requires_local_shell=True)
         self.assertEqual(shell_result["route"], "LOCAL_MACHINE")
 
+    def test_scenario_8_account_verification_circuit_breaker_and_local_fallback(self):
+        """
+        Scenario 8: Account Verification Gate Circuit Breaker & Graceful Local Fallback
+        Exercises: ACCOUNT_VERIFICATION_REQUIRED detection, zero-retry stop in auto mode,
+        manual verification URL handoff, and automatic fallback to LOCAL_MACHINE.
+        """
+        live_error = (
+            "Your account must be verified before it can continue using the Gemini API. "
+            "Verify your account at https://aistudio.google.com/verify-account. "
+            "Learn more at https://ai.google.dev/gemini-api/docs/verification#verify-account."
+        )
+        sim_result = WorkflowSimulator.simulate_account_verification_gate({
+            "mode": "auto",
+            "error_banner": live_error,
+        })
+        self.assertEqual(sim_result["status"], "PAUSED_ACCOUNT_VERIFICATION_REQUIRED")
+        self.assertEqual(sim_result["boundary_triggered"], "ACCOUNT_VERIFICATION_REQUIRED")
+        self.assertEqual(sim_result["autonomy_mode_before"], "auto")
+        self.assertEqual(sim_result["autonomy_mode_after"], "paused_for_user")
+        self.assertTrue(sim_result["automated_retry_aborted"])
+        self.assertEqual(sim_result["retry_count"], 0)
+        self.assertEqual(sim_result["verification_url"], "https://aistudio.google.com/verify-account")
+        self.assertEqual(sim_result["fallback_route"], "LOCAL_MACHINE")
+
 
 if __name__ == "__main__":
     unittest.main()

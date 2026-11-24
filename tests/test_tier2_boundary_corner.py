@@ -399,6 +399,56 @@ class TestTier2BoundaryCorner(unittest.TestCase):
         })
         self.assertEqual(sim["status"], "CONTINUE")
 
+    def test_f9_b06_account_verification_gate_zero_retry_in_auto_mode(self):
+        """F9-B6: Account verification banner forces zero-retry halt and local fallback even in auto mode."""
+        banner = (
+            "Your account must be verified before it can continue using the Gemini API. "
+            "Verify your account at https://aistudio.google.com/verify-account."
+        )
+        classified = SafetyBoundariesValidator.classify_platform_error(banner)
+        self.assertTrue(classified["is_account_verification"])
+        self.assertTrue(classified["zero_retry_required"])
+        self.assertTrue(classified["fallback_to_local"])
+        self.assertEqual(classified["status"], "PAUSED_ACCOUNT_VERIFICATION_REQUIRED")
+
+        sim = WorkflowSimulator.simulate_account_verification_gate({
+            "mode": "auto",
+            "error_banner": banner,
+        })
+        self.assertEqual(sim["status"], "PAUSED_ACCOUNT_VERIFICATION_REQUIRED")
+        self.assertEqual(sim["retry_count"], 0)
+        self.assertTrue(sim["automated_retry_aborted"])
+        self.assertEqual(sim["fallback_route"], "LOCAL_MACHINE")
+
+    def test_f9_b07_pacing_cooldown_rejects_rapid_burst_and_excess_calls(self):
+        """F9-B7: Anti-abuse pacing validator rejects rapid bursts (<15s) and excess session calls (>8)."""
+        too_fast = SafetyBoundariesValidator.validate_pacing_policy(cooldown_seconds=3.0, session_calls=2)
+        self.assertFalse(too_fast["allowed"])
+        self.assertTrue(too_fast["fallback_to_local"])
+
+        too_many = SafetyBoundariesValidator.validate_pacing_policy(cooldown_seconds=20.0, session_calls=9)
+        self.assertFalse(too_many["allowed"])
+        self.assertTrue(too_many["fallback_to_local"])
+
+        healthy = SafetyBoundariesValidator.validate_pacing_policy(cooldown_seconds=22.0, session_calls=4)
+        self.assertTrue(healthy["allowed"])
+        self.assertFalse(healthy["fallback_to_local"])
+        self.assertEqual(healthy["errors"], [])
+
+    def test_f9_b08_on_demand_grounding_off_for_internal_diff_on_for_web(self):
+        """F9-B8: On-Demand Grounding stays OFF for internal git diff reviews and turns ON for live web research."""
+        internal = SafetyBoundariesValidator.should_enable_search_grounding(
+            "Audit local codebase git diff and architecture spec for regressions"
+        )
+        self.assertFalse(internal["enable_search_grounding"])
+        self.assertFalse(internal["enable_url_context"])
+
+        web_task = SafetyBoundariesValidator.should_enable_search_grounding(
+            "Verify latest official docs and pricing for https://ai.google.dev/gemini-api/docs/pricing"
+        )
+        self.assertTrue(web_task["enable_search_grounding"])
+        self.assertTrue(web_task["enable_url_context"])
+
     # =========================================================================
     # Feature 10: Local File Staging Contract - 5 Boundary Tests
     # =========================================================================

@@ -84,12 +84,12 @@ class TestTier1FeatureCoverage(unittest.TestCase):
         )
 
     def test_f1_04_manifest_semantic_version(self):
-        """F1-4: Manifest version follows valid semantic versioning (X.Y.Z) and is 0.2.0."""
+        """F1-4: Manifest version follows valid semantic versioning (X.Y.Z) and is 0.2.1."""
         self.assertTrue(PLUGIN_JSON_PATH.is_file(), f"Target file missing: {PLUGIN_JSON_PATH}")
         manifest_data = json.loads(PLUGIN_JSON_PATH.read_text(encoding="utf-8"))
         version = manifest_data.get("version", "")
         self.assertTrue(ManifestValidator.SEMVER_PATTERN.match(version), f"Invalid semver: {version}")
-        self.assertEqual(version, "0.2.0")
+        self.assertEqual(version, "0.2.1")
 
     def test_f1_05_manifest_homepage_and_repo_urls(self):
         """F1-5: Manifest homepage and repository fields are valid URLs."""
@@ -399,6 +399,29 @@ class TestTier1FeatureCoverage(unittest.TestCase):
         self.assertTrue(AGENTS_RULE_PATH.is_file(), f"Target file missing: {AGENTS_RULE_PATH}")
         content = AGENTS_RULE_PATH.read_text(encoding="utf-8")
         self.assertIn("send_message", content)
+
+    def test_f9_06_safety_boundary_account_verification_required(self):
+        """F9-6: Rules document ACCOUNT_VERIFICATION_REQUIRED zero-retry circuit breaker and verify-account URL."""
+        self.assertTrue(AGENTS_RULE_PATH.is_file(), f"Target file missing: {AGENTS_RULE_PATH}")
+        content = AGENTS_RULE_PATH.read_text(encoding="utf-8")
+        self.assertIn("ACCOUNT_VERIFICATION_REQUIRED", content)
+        self.assertIn("https://aistudio.google.com/verify-account", content)
+        self.assertIn("zero-retry", content.lower())
+
+    def test_f9_07_anti_abuse_pacing_and_session_cap_documented(self):
+        """F9-7: Rules document 15-30s inter-request pacing cooldown and 5-8 calls/session soft cap."""
+        self.assertTrue(AGENTS_RULE_PATH.is_file(), f"Target file missing: {AGENTS_RULE_PATH}")
+        content = AGENTS_RULE_PATH.read_text(encoding="utf-8")
+        self.assertIn("15-30", content)
+        self.assertIn("5-8", content)
+        self.assertIn("cooldown", content.lower())
+
+    def test_f9_08_on_demand_grounding_policy_documented(self):
+        """F9-8: Rules enforce On-Demand Grounding (OFF for internal code/diff tasks, ON only for live web research)."""
+        self.assertTrue(AGENTS_RULE_PATH.is_file(), f"Target file missing: {AGENTS_RULE_PATH}")
+        content = AGENTS_RULE_PATH.read_text(encoding="utf-8")
+        self.assertIn("On-Demand", content)
+        self.assertIn("Default OFF for Internal Tasks", content)
 
     # =========================================================================
     # Feature 10: Local File Staging Contract - 5 Tests

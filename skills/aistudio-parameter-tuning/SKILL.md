@@ -57,7 +57,7 @@ Each category supports 4 threshold levels:
 - **`Structured outputs`**: Enforce strict JSON Schema decoding directly in chat prompt or `/prompts/new_structured`.
 - **`Code execution`**: Sandboxed Python execution for symbolic math, algorithmic checks, and data transformation.
 - **`Function calling`**: Custom tool/function declarations (**Note: automatically disabled when `Grounding with Google Search` is enabled**).
-- **`Grounding with Google Search`**: Real-time web search and inline URL citations (**enabled by default in Gemini 4**; toggle off only if `Function calling` is required).
+- **`Grounding with Google Search` (On-Demand Policy)**: Real-time web search and inline URL citations. Because live Gemini 4 Web UI may initialize this switch to `ON`, **explicitly inspect `Tools` and toggle it OFF (`aria-checked="false"`) for internal code/`git diff` reviews, local architecture design, copywriting, or JSON schema validation** (avoids unnecessary anti-abuse verification triggers and preserves `Function calling`); keep/toggle it **ON** (`aria-checked="true"`) only when live external web research or current factual verification is needed.
 - **`URL context`**: Directly fetches and reads full webpage body text from URLs included in the prompt.
 
 ## Workflow
@@ -85,7 +85,7 @@ Each category supports 4 threshold levels:
 
 1. Under **Tools** in the right sidebar:
    - Toggle **Structured outputs** and supply JSON Schema when strict JSON is needed.
-   - Keep **Grounding with Google Search** enabled (default in Gemini 4) for live web verification, or toggle it **off** when **Function calling** is required (since Search disables Function calling).
+   - Configure **Grounding with Google Search** on demand: explicitly inspect and toggle it **OFF** (`aria-checked="false"`) for internal code/`git diff` reviews, architecture design, copywriting, or when **Function calling** is required (live UI may default it ON); explicitly verify/toggle it **ON** (`aria-checked="true"`) only when live external web research or up-to-date API verification is required.
    - Enable **URL context** when the prompt supplies specific documentation/article URLs to read verbatim.
    - Enable **Code execution** for mathematical or algorithmic verification.
 

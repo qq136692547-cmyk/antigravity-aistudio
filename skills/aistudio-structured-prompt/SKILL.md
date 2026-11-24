@@ -20,7 +20,7 @@ Design, test, and evaluate tabular few-shot structured prompts and JSON schema c
 
 1. Delegate to the `browser` subagent (`TypeName: "browser"`, `Model: "flash"`) targeting `https://aistudio.google.com/prompts/new_structured`.
 2. Confirm active session via Fast-Path Authentication Check (user avatar visible, structured table editor loaded, RPC status HTTP 200).
-3. Select `Gemini 4 Hydrogen` (default for structured extraction/synthetic batches) or `Gemini 4 Neon`, and verify **`Thinking level = High`** in `Run settings` (`Low` and `Medium` are strictly forbidden).
+3. Select `Gemini 4 Hydrogen` (default for structured extraction/synthetic batches) or `Gemini 4 Neon`, verify **`Thinking level = High`** in `Run settings` (`Low` and `Medium` are strictly forbidden), and explicitly inspect `Tools` to toggle **`Grounding with Google Search` OFF (`aria-checked="false"`)** for offline schema/classification tasks.
 
 ### Step 2: Configure Table Schema and Columns
 
@@ -64,7 +64,7 @@ Design, test, and evaluate tabular few-shot structured prompts and JSON schema c
 1. In the **Test your prompt** section below the few-shot table, add one or more test cases.
 2. Input the test values for each input column.
 3. In `checkpoint` mode (default), present the test cases, Gemini 4 model (`Thinking level: High`), and example count to the user before running. In `auto` mode, trigger batch execution immediately.
-4. Click `Run all test cases` or click `Run` on individual test rows.
+4. Respect the **15-30s randomized pacing cooldown** between batch executions (soft cap **5-8 calls/session**), click `Run all test cases` or click `Run` on individual test rows, and immediately halt with zero retries (falling back to local execution) if `ACCOUNT_VERIFICATION_REQUIRED` (`https://aistudio.google.com/verify-account`) or `429 ResourceExhausted` appears.
 5. Inspect the generated model outputs in the output column cells:
    - Confirm outputs adhere to the configured JSON schema.
    - Verify accuracy against expected transformations.

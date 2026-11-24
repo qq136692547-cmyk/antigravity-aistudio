@@ -50,3 +50,12 @@ The following legacy models are retired, obsolete, or prohibited for cloud offlo
 - **Gemini 3.x**: `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.8-flash`
 
 Always verify that proposed offload workflows target active **Gemini 4** series models on `https://aistudio.google.com/` with `Thinking level >= High`.
+
+## Anti-Abuse Pacing, On-Demand Grounding & Account Verification Circuit Breaker
+
+To prevent triggering Google AI Studio's automated abuse verification gate (`https://aistudio.google.com/verify-account`):
+- **Low-Frequency High-Density Batching**: Consolidate related design, audit, or research sub-questions into a single mega-prompt instead of sending rapid small turns. Keep trivial queries (`< 4,000` tokens) and small edits (`< 50` lines) on the local machine.
+- **Inter-Request Cooldown & Session Cap**: Maintain a **15-30 second randomized pacing cooldown** between consecutive submissions and enforce a **5-8 calls/session** soft cap; reuse the active conversation thread rather than opening fresh `/prompts/new_chat` tabs on every step.
+- **Hydrogen-First Model Tiering**: Prefer `Gemini 4 Hydrogen (High)` for routine workloads and reserve `Gemini 4 Neon (High)` for heavy architecture, multimodal inspection, or delivery audits.
+- **On-Demand Search Grounding**: Explicitly inspect `Tools` and toggle `Grounding with Google Search` **OFF** (`aria-checked="false"`) for internal codebase/diff audits, architecture specs, and copywriting (live UI may default it ON); enable it **ON** only for live web/external documentation research. Enable `URL context` whenever explicit URLs are included.
+- **Zero-Retry Account Verification Circuit Breaker (`ACCOUNT_VERIFICATION_REQUIRED`)**: If `"Your account must be verified"` or `aistudio.google.com/verify-account` appears, halt immediately with **0 automated retries**, notify the user with the verification link, and fall back seamlessly to **Local Machine** execution.
