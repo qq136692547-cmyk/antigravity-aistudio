@@ -435,19 +435,36 @@ class TestTier2BoundaryCorner(unittest.TestCase):
         self.assertFalse(healthy["fallback_to_local"])
         self.assertEqual(healthy["errors"], [])
 
-    def test_f9_b08_on_demand_grounding_off_for_internal_diff_on_for_web(self):
-        """F9-B8: On-Demand Grounding stays OFF for internal git diff reviews and turns ON for live web research."""
-        internal = SafetyBoundariesValidator.should_enable_search_grounding(
-            "Audit local codebase git diff and architecture spec for regressions"
+    def test_f9_b08_grounded_audits_and_proactive_url_context(self):
+        """F9-B8: Audits/diff reviews and web research turn Grounding ON; offline copywriting stays OFF; any http(s):// enables URL context."""
+        audit = SafetyBoundariesValidator.should_enable_search_grounding(
+            "Audit local codebase git diff and architecture spec for regressions, endpoint http://127.0.0.1:8080/health"
         )
-        self.assertFalse(internal["enable_search_grounding"])
-        self.assertFalse(internal["enable_url_context"])
+        self.assertTrue(audit["enable_search_grounding"])
+        self.assertTrue(audit["enable_url_context"])
 
         web_task = SafetyBoundariesValidator.should_enable_search_grounding(
             "Verify latest official docs and pricing for https://ai.google.dev/gemini-api/docs/pricing"
         )
         self.assertTrue(web_task["enable_search_grounding"])
         self.assertTrue(web_task["enable_url_context"])
+
+        offline_copy = SafetyBoundariesValidator.should_enable_search_grounding(
+            "Draft copywriting and tweet thread for product launch"
+        )
+        self.assertFalse(offline_copy["enable_search_grounding"])
+        self.assertFalse(offline_copy["enable_url_context"])
+
+    def test_f9_b09_inline_enable_url_context_banner_triggers_recovery(self):
+        """F9-B9: Inline 'Enable URL Context' banner is detected and triggers click + rerun without counting as an error retry."""
+        banner = (
+            "You provided URL(s), but the URL Context tool is required to access their content. "
+            "Please enable the URL Context tool and try your request again. Enable URL Context"
+        )
+        recovery = SafetyBoundariesValidator.classify_url_context_banner(banner)
+        self.assertTrue(recovery["needs_url_context_recovery"])
+        self.assertEqual(recovery["action"], "click_enable_url_context_and_rerun")
+        self.assertFalse(recovery["counts_as_error_retry"])
 
     # =========================================================================
     # Feature 10: Local File Staging Contract - 5 Boundary Tests

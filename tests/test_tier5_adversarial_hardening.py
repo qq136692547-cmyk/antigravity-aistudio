@@ -440,26 +440,48 @@ This is a sufficiently long markdown body describing skill operation.
         )
 
     def test_t5_33_grounding_word_boundaries_uppercase_url_and_rate_limit_pause(self):
-        """T5-33: Grounding avoids substring false positives, handles uppercase URLs, and rate limits trigger pause."""
-        # Internal tasks containing substrings of 'current', 'market', 'news', or 'current branch' must stay OFF
-        for internal_prompt in [
+        """T5-33: Grounding turns ON for audits/diffs, avoids substring false positives on offline copywriting, handles uppercase URLs, and rate limits trigger pause."""
+        # Offline copywriting containing substrings of 'market'/'news' must stay OFF
+        offline = SafetyBoundariesValidator.should_enable_search_grounding(
+            "Draft marketing copywriting and newsletter tweet for launch"
+        )
+        self.assertFalse(offline["enable_search_grounding"], "False-positive Grounding ON for offline copywriting")
+
+        # Audit / git diff prompts MUST turn Grounding ON (even when containing 'current branch' or local URLs)
+        for audit_prompt in [
             "Audit git diff for concurrent worker bug in local codebase",
             "Review git diff of current branch for regressions",
-            "Draft marketing copywriting and newsletter tweet for launch",
         ]:
-            res = SafetyBoundariesValidator.should_enable_search_grounding(internal_prompt)
-            self.assertFalse(res["enable_search_grounding"], f"False-positive Grounding ON for: {internal_prompt}")
+            res = SafetyBoundariesValidator.should_enable_search_grounding(audit_prompt)
+            self.assertTrue(res["enable_search_grounding"], f"Audit must keep Grounding ON: {audit_prompt}")
+
+        # Function calling explicitly disables Search Grounding
+        fc = SafetyBoundariesValidator.should_enable_search_grounding(
+            "Audit git diff with tool schema", requires_function_calling=True
+        )
+        self.assertFalse(fc["enable_search_grounding"])
 
         # Uppercase URL scheme must still trigger URL context
         upper_url = SafetyBoundariesValidator.should_enable_search_grounding(
             "Inspect API spec at HTTPS://AI.GOOGLE.DEV/GEMINI-API/DOCS and review architecture spec"
         )
+        self.assertTrue(upper_url["enable_search_grounding"])
         self.assertTrue(upper_url["enable_url_context"], "Uppercase HTTPS:// URL must enable URL context")
 
         # Transient rate limit banner must pause rather than CONTINUE
         rate_limit = SafetyBoundariesValidator.classify_platform_error("Rate limit exceeded. Please wait 60 seconds.")
         self.assertTrue(rate_limit["is_transient"])
         self.assertEqual(rate_limit["status"], "PAUSED_SAFETY_TRIGGERED")
+
+    def test_t5_34_url_context_recovery_handles_case_and_ignores_clean_output(self):
+        """T5-34: URL context banner detector catches lowercase/mixed-case prompt cards and stays passive on normal responses."""
+        banner_lower = "you provided url(s), but the url context tool is required to access their content."
+        self.assertTrue(SafetyBoundariesValidator.classify_url_context_banner(banner_lower)["needs_url_context_recovery"])
+
+        normal_output = "Stage 3 audit passed with 0 P0 findings across src/bridge.py and config endpoints."
+        clean = SafetyBoundariesValidator.classify_url_context_banner(normal_output)
+        self.assertFalse(clean["needs_url_context_recovery"])
+        self.assertEqual(clean["action"], "continue")
 
 
 if __name__ == "__main__":

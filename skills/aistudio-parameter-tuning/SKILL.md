@@ -57,8 +57,8 @@ Each category supports 4 threshold levels:
 - **`Structured outputs`**: Enforce strict JSON Schema decoding directly in chat prompt or `/prompts/new_structured`.
 - **`Code execution`**: Sandboxed Python execution for symbolic math, algorithmic checks, and data transformation.
 - **`Function calling`**: Custom tool/function declarations (**Note: automatically disabled when `Grounding with Google Search` is enabled**).
-- **`Grounding with Google Search` (On-Demand Policy)**: Real-time web search and inline URL citations. Because live Gemini 4 Web UI may initialize this switch to `ON`, **explicitly inspect `Tools` and toggle it OFF (`aria-checked="false"`) for internal code/`git diff` reviews, local architecture design, copywriting, or JSON schema validation** (avoids unnecessary anti-abuse verification triggers and preserves `Function calling`); keep/toggle it **ON** (`aria-checked="true"`) only when live external web research or current factual verification is needed.
-- **`URL context`**: Directly fetches and reads full webpage body text from URLs included in the prompt.
+- **`Grounding with Google Search` (Audit & Research Policy)**: Real-time web search and inline URL citations. **Explicitly inspect `Tools` and verify/toggle it ON (`aria-checked="true"`) for Stage 1 research/architecture planning and all Stage 3 `git diff`/code audits** (live UI/model switches can leave it `OFF`, and ungrounded audits miss live spec checks). Toggle it **OFF** (`aria-checked="false"`) only when **`Function calling`** is required (Search disables Function calling) or for purely offline copywriting / JSON schema tasks.
+- **`URL context`**: Directly fetches and reads URLs included in the prompt. Because AI Studio blocks or flags any prompt containing `http(s)://` strings when `URL context` is OFF, toggle it **ON** (`aria-checked="true"`) proactively whenever ANY URL appears in the prompt/diff (and click **`Enable URL Context`** + re-run if the inline banner appears).
 
 ## Workflow
 
@@ -85,8 +85,8 @@ Each category supports 4 threshold levels:
 
 1. Under **Tools** in the right sidebar:
    - Toggle **Structured outputs** and supply JSON Schema when strict JSON is needed.
-   - Configure **Grounding with Google Search** on demand: explicitly inspect and toggle it **OFF** (`aria-checked="false"`) for internal code/`git diff` reviews, architecture design, copywriting, or when **Function calling** is required (live UI may default it ON); explicitly verify/toggle it **ON** (`aria-checked="true"`) only when live external web research or up-to-date API verification is required.
-   - Enable **URL context** when the prompt supplies specific documentation/article URLs to read verbatim.
+   - Configure **Grounding with Google Search**: explicitly inspect and ensure it is **ON** (`aria-checked="true"`) for Stage 1 architecture/research and all Stage 3 `git diff`/code audits; toggle it **OFF** (`aria-checked="false"`) only when **Function calling** is required (Search disables Function calling) or for purely offline copywriting/JSON schema runs.
+   - Enable **URL context** (`aria-checked="true"`) proactively before clicking `Run` whenever the prompt or pasted code/diff contains ANY `http://` or `https://` literal (and click **`Enable URL Context`** + re-run if the inline prompt card appears).
    - Enable **Code execution** for mathematical or algorithmic verification.
 
 ### Step 5: Test and Verify Parameter Behavior

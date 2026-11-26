@@ -84,12 +84,12 @@ class TestTier1FeatureCoverage(unittest.TestCase):
         )
 
     def test_f1_04_manifest_semantic_version(self):
-        """F1-4: Manifest version follows valid semantic versioning (X.Y.Z) and is 0.2.1."""
+        """F1-4: Manifest version follows valid semantic versioning (X.Y.Z) and is 0.2.2."""
         self.assertTrue(PLUGIN_JSON_PATH.is_file(), f"Target file missing: {PLUGIN_JSON_PATH}")
         manifest_data = json.loads(PLUGIN_JSON_PATH.read_text(encoding="utf-8"))
         version = manifest_data.get("version", "")
         self.assertTrue(ManifestValidator.SEMVER_PATTERN.match(version), f"Invalid semver: {version}")
-        self.assertEqual(version, "0.2.1")
+        self.assertEqual(version, "0.2.2")
 
     def test_f1_05_manifest_homepage_and_repo_urls(self):
         """F1-5: Manifest homepage and repository fields are valid URLs."""
@@ -416,12 +416,20 @@ class TestTier1FeatureCoverage(unittest.TestCase):
         self.assertIn("5-8", content)
         self.assertIn("cooldown", content.lower())
 
-    def test_f9_08_on_demand_grounding_policy_documented(self):
-        """F9-8: Rules enforce On-Demand Grounding (OFF for internal code/diff tasks, ON only for live web research)."""
+    def test_f9_08_grounded_audit_and_research_policy_documented(self):
+        """F9-8: Rules enforce Grounding with Google Search ON for audits & research before clicking Run."""
         self.assertTrue(AGENTS_RULE_PATH.is_file(), f"Target file missing: {AGENTS_RULE_PATH}")
         content = AGENTS_RULE_PATH.read_text(encoding="utf-8")
-        self.assertIn("On-Demand", content)
-        self.assertIn("Default OFF for Internal Tasks", content)
+        self.assertIn("Tools Verification", content)
+        self.assertIn("`ON` by Default for Audits & Research", content)
+        self.assertIn("Function calling", content)
+
+    def test_f9_09_proactive_url_context_and_banner_recovery_documented(self):
+        """F9-9: Rules require URL context ON for any http(s):// literal and clicking Enable URL Context on inline banner."""
+        self.assertTrue(AGENTS_RULE_PATH.is_file(), f"Target file missing: {AGENTS_RULE_PATH}")
+        content = AGENTS_RULE_PATH.read_text(encoding="utf-8")
+        self.assertIn("Proactive `URL context`", content)
+        self.assertIn("Enable URL Context", content)
 
     # =========================================================================
     # Feature 10: Local File Staging Contract - 5 Tests

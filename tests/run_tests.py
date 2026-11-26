@@ -32,13 +32,13 @@ from test_tier4_real_world import TestTier4RealWorld
 from test_tier5_adversarial_hardening import TestTier5AdversarialHardening
 
 TIER_REQUIREMENTS = {
-    "Tier 1 (Feature Coverage)": 98,
-    "Tier 2 (Boundary & Corner)": 99,
+    "Tier 1 (Feature Coverage)": 99,
+    "Tier 2 (Boundary & Corner)": 100,
     "Tier 3 (Cross-Feature & Pairwise)": 28,
     "Tier 4 (Real-World Scenarios)": 8,
-    "Tier 5 (Adversarial Hardening)": 33,
+    "Tier 5 (Adversarial Hardening)": 34,
 }
-MIN_TOTAL_TESTS = 266
+MIN_TOTAL_TESTS = 269
 
 MANDATORY_REPO_ARTIFACTS = [
     ("plugin.json", REPO_ROOT / "plugin.json", "file"),

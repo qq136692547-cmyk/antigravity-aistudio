@@ -363,7 +363,8 @@ class RulesValidator:
         ("safety_quota_429", r"429|ResourceExhausted|quota"),
         ("safety_account_verification", r"ACCOUNT_VERIFICATION_REQUIRED|aistudio\.google\.com/verify-account"),
         ("anti_abuse_pacing", r"15-30|cooldown|pacing"),
-        ("on_demand_grounding", r"On-Demand|default OFF|Leave `Grounding with Google Search` \*\*OFF\*\*"),
+        ("tools_verification_grounded_audits", r"Tools\s+Verification|Grounding with Google Search.*ON"),
+        ("url_context_recovery", r"Enable URL Context"),
         ("staging_uploads", r"browser_sandbox/uploads/"),
         ("staging_downloads", r"browser_sandbox/downloads/"),
     ]
@@ -735,41 +736,66 @@ class SafetyBoundariesValidator:
             "errors": errors,
         }
 
-    EXPLICIT_WEB_RESEARCH_PATTERN = re.compile(
-        r"\b(?:web\s+research|live\s+web|search\s+google|up-to-date|verify\s+online|official\s+docs|release\s+notes|pricing|competitor(?:s)?|external\s+api)\b",
+    AUDIT_AND_RESEARCH_PATTERN = re.compile(
+        r"\b(?:audit(?:ing)?|code\s+review|git\s+diff|architecture\s+(?:audit|review|spec|design)|web\s+research|live\s+web|search\s+google|up-to-date|verify\s+online|official\s+docs|release\s+notes|pricing|competitor(?:s)?|external\s+api)\b",
         re.IGNORECASE,
     )
     GENERIC_FRESHNESS_PATTERN = re.compile(
         r"\b(?:latest|current|news|market\s+trend(?:s)?|market\s+research)\b",
         re.IGNORECASE,
     )
-    INTERNAL_ONLY_PATTERN = re.compile(
-        r"\b(?:git\s+diff|code\s+review|refactor(?:ing)?|architecture\s+spec|copywriting|tweet(?:s)?|json\s+schema|unit\s+test(?:s)?|local\s+codebase)\b",
+    OFFLINE_ONLY_PATTERN = re.compile(
+        r"\b(?:copywriting|tweet(?:s)?|json\s+schema|format(?:ting)?)\b",
+        re.IGNORECASE,
+    )
+    URL_CONTEXT_BANNER_PATTERN = re.compile(
+        r"(?:you\s+provided\s+url\(s\),\s*but\s+the\s+url\s+context\s+tool\s+is\s+required|\bEnable\s+URL\s+Context\b)",
         re.IGNORECASE,
     )
 
     @classmethod
-    def should_enable_search_grounding(cls, task_description: str, has_urls: bool = False) -> Dict[str, Any]:
-        """Enforces On-Demand Grounding: OFF for internal code/diff/spec/copywriting, ON only for live web research."""
+    def should_enable_search_grounding(
+        cls,
+        task_description: str,
+        has_urls: bool = False,
+        requires_function_calling: bool = False,
+    ) -> Dict[str, Any]:
+        """Enforces Grounded Audits/Research (ON for audits, code/diff reviews, and web research; OFF only for Function calling or offline copywriting/JSON formatting) plus proactive URL context on any http(s):// literal."""
         desc = str(task_description or "")
         detected_url = bool(has_urls) or bool(re.search(r"https?://\S+", desc, re.IGNORECASE))
 
-        has_explicit_web = bool(cls.EXPLICIT_WEB_RESEARCH_PATTERN.search(desc))
-        has_generic_freshness = bool(cls.GENERIC_FRESHNESS_PATTERN.search(desc))
-        is_internal = bool(cls.INTERNAL_ONLY_PATTERN.search(desc))
+        if requires_function_calling:
+            return {
+                "enable_search_grounding": False,
+                "enable_url_context": detected_url,
+                "reason": "Function calling required; Grounding with Google Search must stay OFF because Search disables Function calling",
+            }
 
-        # Explicit live-web markers enable Search Grounding; generic freshness words only enable
-        # Search Grounding when the task is NOT an internal/offline task.
-        enable_search = has_explicit_web or (has_generic_freshness and not is_internal)
+        has_audit_or_web = bool(cls.AUDIT_AND_RESEARCH_PATTERN.search(desc))
+        has_generic_freshness = bool(cls.GENERIC_FRESHNESS_PATTERN.search(desc))
+        is_offline_only = bool(cls.OFFLINE_ONLY_PATTERN.search(desc))
+
+        enable_search = has_audit_or_web or (has_generic_freshness and not is_offline_only)
 
         return {
             "enable_search_grounding": enable_search,
             "enable_url_context": detected_url,
             "reason": (
-                "Live web/external factual research requested; explicitly toggle Grounding with Google Search ON"
+                "Audit, code/diff review, or live web research requested; explicitly toggle Grounding with Google Search ON"
                 if enable_search
-                else "Internal/offline task; explicitly toggle Grounding with Google Search OFF to minimize anti-abuse risk"
+                else "Purely offline formatting/copywriting task; keep Grounding with Google Search OFF"
             ),
+        }
+
+    @classmethod
+    def classify_url_context_banner(cls, ui_text: str) -> Dict[str, Any]:
+        """Detects AI Studio's inline 'Enable URL Context' prompt banner and prescribes click + re-run recovery."""
+        text = str(ui_text or "")
+        needs_recovery = bool(cls.URL_CONTEXT_BANNER_PATTERN.search(text))
+        return {
+            "needs_url_context_recovery": needs_recovery,
+            "action": "click_enable_url_context_and_rerun" if needs_recovery else "continue",
+            "counts_as_error_retry": False,
         }
 
     @classmethod
@@ -1636,7 +1662,7 @@ class WorkflowSimulator:
             "required": ["sentiment", "score"],
         })
 
-        generated_python = f'''# Generated by Antigravity Google AI Studio Plugin v0.2.1
+        generated_python = f'''# Generated by Antigravity Google AI Studio Plugin v0.2.2
 import os
 from google import genai
 from google.genai import types
@@ -1713,7 +1739,7 @@ CANONICAL_FIXTURES = {
         "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
         "name": "antigravity-aistudio",
         "displayName": "Google AI Studio",
-        "version": "0.2.1",
+        "version": "0.2.2",
         "description": "Cloud offloading and workflow automation for Google AI Studio through Antigravity's built-in browser subagent.",
         "logo": "assets/logo.svg",
         "keywords": ["aistudio", "gemini-4", "cloud-offload"],

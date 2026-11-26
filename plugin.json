@@ -2,8 +2,8 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "antigravity-aistudio",
   "displayName": "Google AI Studio",
-  "version": "0.2.1",
-  "description": "Cloud offloading and workflow automation for Google AI Studio (https://aistudio.google.com/) through Antigravity's built-in browser subagent. Features pure Gemini 4 (1M context, Thinking >= High), anti-abuse pacing & on-demand Grounding, ACCOUNT_VERIFICATION_REQUIRED zero-retry circuit breaker, and graceful local fallback.",
+  "version": "0.2.2",
+  "description": "Cloud offloading and workflow automation for Google AI Studio (https://aistudio.google.com/) through Antigravity's built-in browser subagent. Features pure Gemini 4 (1M context, Thinking >= High), Grounding with Google Search for audits & research, proactive URL context + Enable URL Context auto-recovery, anti-abuse pacing, and ACCOUNT_VERIFICATION_REQUIRED circuit breaker.",
   "logo": "assets/logo.svg",
   "keywords": [
     "aistudio",

@@ -34,7 +34,7 @@ Design, execute, and manage multi-turn conversational dialogue sessions in **Goo
    - `Gemini 4 Neon` (`1M` in / `64K` out, Pro/Paid)
    - `Gemini 4 Carbon` (`1M` in / `32K` out, Paid gated -- **switch `Thinking level` from default `Medium` to `High`**; if `Unlock Gemini 4 Carbon` paywall appears, pause immediately and offer fallback to `Gemini 4 Neon (High)` or `Gemini 4 Hydrogen (High)`)
 2. Verify **`Thinking level = High`** is active in `Run settings`. **`Low` and `Medium` thinking levels are strictly prohibited.**
-3. Configure `Output length` (up to `65536` for Hydrogen/Neon or `32768` for Argon/Carbon), `Media resolution` (`Default` / `Low` / `Medium` / `High`), `Add stop sequence`, and **On-Demand `Tools`** (`Structured outputs`, `Code execution`, `Function calling`, `Grounding with Google Search` -- explicitly inspect and toggle **OFF** (`aria-checked="false"`) for internal-only tasks since live UI may default it ON; enable **ON** only for live web queries -- and `URL context` when URLs are supplied).
+3. Configure `Output length` (up to `65536` for Hydrogen/Neon or `32768` for Argon/Carbon), `Media resolution` (`Default` / `Low` / `Medium` / `High`), `Add stop sequence`, and **`Tools`** (`Structured outputs`, `Code execution`, `Function calling`, `Grounding with Google Search` -- explicitly inspect and ensure **ON** (`aria-checked="true"`) for architectural audits, code reviews, and web research, and **OFF** only when `Function calling` is required or for purely offline copywriting/JSON schema formatting -- plus `URL context` **ON** whenever ANY `http://` or `https://` literal appears in the prompt or pasted diff).
 
 ### Step 3: Configure System Instructions
 
@@ -65,7 +65,7 @@ For each user message in the dialogue sequence:
    - Note input token count and accumulated history tokens.
    - Ensure the total token count stays within the unified `1,000,000` (`1M`) token context window across all Gemini 4 models.
 5. Wait for the model response stream to finish rendering.
-6. Inspect response for account verification gates (`ACCOUNT_VERIFICATION_REQUIRED` / `aistudio.google.com/verify-account` -- zero-retry immediate halt and local fallback), safety blocks (`HARM_CATEGORY_*`), paid gates (`Unlock Gemini 4 Carbon`), or quota errors (`429 ResourceExhausted`).
+6. Inspect response for inline **`Enable URL Context`** prompt cards (if shown, immediately click **`Enable URL Context`** and re-run once), account verification gates (`ACCOUNT_VERIFICATION_REQUIRED` / `aistudio.google.com/verify-account` -- zero-retry immediate halt and local fallback), safety blocks (`HARM_CATEGORY_*`), paid gates (`Unlock Gemini 4 Carbon`), or quota errors (`429 ResourceExhausted`).
 
 ### Step 6: Export Chat History to Local Markdown
 
